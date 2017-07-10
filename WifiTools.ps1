@@ -1265,3 +1265,34 @@ Function Monitor-WifiState()
 
     }
 }
+function DateEcho($Var)
+{
+<#
+   
+.DESCRIPTION
+   This function will add an extra time stamp for all input.
+   Pipeline enabled command.
+
+.EXAMPLE
+   DateEcho "This message need a timesamp"
+   26.01.2017-22:24:08> This message need a timesamp
+
+.EXAMPLE
+    ping 8.8.8.8 -t | DateEcho   
+
+    26.01.2017-22:24:48> Reply from 8.8.8.8: bytes=32 time=10ms TTL=57
+    26.01.2017-22:24:49> Reply from 8.8.8.8: bytes=32 time=13ms TTL=57
+    26.01.2017-22:24:50> Reply from 8.8.8.8: bytes=32 time=12ms TTL=57
+    26.01.2017-22:24:51> Reply from 8.8.8.8: bytes=32 time=10ms TTL=57
+    26.01.2017-22:24:52> Reply from 8.8.8.8: bytes=32 time=10ms TTL=57
+#>
+    
+    process
+    {
+         $TimeStamp=Get-Date -Format "dd.MM.yyyy-HH:mm:ss> "
+        "$TimeStamp$Var$_"
+        
+    }
+    
+
+}
