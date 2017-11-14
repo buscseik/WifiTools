@@ -57,6 +57,9 @@ function Show-WifiState()
     
 }
 
+
+
+
 function Monitor-WifiState()
 {
 <#
@@ -483,9 +486,9 @@ Function Show-IPConfig
 
 
     Process{
-        $SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -like "*$Interface*"}
+        $SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -eq $Interface}
         $Interface=$SelectedAdapter.Name
-
+        
         $AllIpConifig=$(ipconfig /all)
         $needToPrintNextLine=$false
         $ignoreWhiteSpace=$false
