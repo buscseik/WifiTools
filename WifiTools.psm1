@@ -21,4 +21,7 @@ export-modulemember -function Get-TCPConnectionsInfo
 export-modulemember -function Stay-Connected
 export-modulemember -function Monitor-WifiState
 export-modulemember -function Get-WifiState
+export-modulemember -function Connect-WifibyBssid
+export-modulemember -function Get-WifiLog
+export-modulemember -function Monitor-WifiLog
 #endregion export module member

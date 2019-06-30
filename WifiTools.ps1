@@ -125,10 +125,23 @@ Function Get-PublicIP()
 .EXAMPLE
     Get-PublicIP
 
-#>
+    Get-PublicIP -ipv6
 
-    $Uri = 'ipv4bot.whatismyipaddress.com'
-    Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content
+#>
+	param([Switch]$ipv6=$false)
+    
+	if(-not $ipv6)
+	{
+		$Uri = 'ipv4bot.whatismyipaddress.com'
+		Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content
+	}
+	else
+	{
+		$Uri = 'ipv6bot.whatismyipaddress.com'
+		Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content
+	
+	}
+	
 }
 
 function Connect-WiFi()
@@ -215,6 +228,184 @@ function Connect-WiFi()
     }
     }
 }
+function Connect-WifibyBssid()
+{
+<#
+   
+.DESCRIPTION
+   This function can help you to connet specified wireless network based on BSSID
+   
+       
+.PARAMETER ProfileName
+   You can specify the exact profile name and the BSSID where you want to connect.
+
+.EXAMPLE
+   Connect-WiFi -ProfileName TP007 -
+   
+   Connection will be proceed only if profile exists.
+
+.EXAMPLE
+   Connect-WifibyBssid -ProfileName TP007 -InterfaceName Wi-Fi -APMac AA:BB:CC:DD:EE:FF
+
+   Connection will be procced, if profile exists on the specified interface and BSSID is available.
+#>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true,Position=3,HelpMessage="Please provide mac address for targeted AP")][string]$APMac
+    )
+    
+    DynamicParam {
+        $ParameterName="ProfileName"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 1
+        $AttributeCollection.Add($ParameterAttribute)
+        $arrSet = Get-WifiProfiles
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+
+
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 2
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
+
+
+
+        return $RuntimeParameterDictionary
+    }
+    begin{
+        $ProfileName = $PsBoundParameters[$ParameterName]
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+    process{
+    
+        $managedwifilib=[Reflection.Assembly]::LoadFile("$PSScriptRoot\ManagedWifi.dll")
+
+
+        $wificlient = New-Object NativeWifi.WlanClient
+        $selectedIf=$null
+
+        foreach($nextif in $wificlient.Interfaces)
+        {
+            if($nextif.InterfaceName -eq $SelectedInterface)
+            {
+                $selectedIf=$nextif
+            }
+        }
+        $selectedIf.Connect($APMac, $ProfileName)
+
+    }
+
+        
+}
+
+
+function Get-WifiLog()
+{
+<#
+   
+.DESCRIPTION
+   This function will list all wifi related logs stored on Windows.
+   
+       
+.PARAMETER ProfileName
+   You can speficy if only errors need to be displayed
+
+.EXAMPLE
+   Get-WifiLog
+
+   Get-WifiLog -OnlyError
+#>
+
+
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false
+        
+    )
+    
+    if($OnlyError)
+    {
+        Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | where LevelDisplayName -EQ Error
+    }
+    else
+    {
+        Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational
+    }
+}
+
+
+
+function Monitor-WifiLog()
+{
+ <#
+   
+.DESCRIPTION
+   This function will monitor all wifi related logs being created from start time.
+   
+       
+.PARAMETER ProfileName
+   You can speficy if only errors need to be displayed
+
+.EXAMPLE
+   Monitor-WifiLog
+
+   Monitor-WifiLog -OnlyError
+#>   
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false
+        
+    )
+    $lastevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 1
+
+    #for($i=0; $i -lt 3600;$i++)
+    while($true)
+    {
+        $newevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 1
+        
+        if ($lastevent.TimeCreated -ne $newevent.TimeCreated)
+        {
+            if($OnlyError)
+            {
+                $newevents=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 10 | where LevelDisplayName -eq "Error"|where TimeCreated -gt $lastevent.timecreated
+            }
+            else
+            {
+                $newevents=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 10 | where TimeCreated -gt $lastevent.timecreated
+            }
+            foreach ($nextevent in $newevents)
+            {
+                if($nextevent.TimeCreated -ne $lastevent.TimeCreated)
+                {
+                    $shortmessage=$nextevent.Message.split("`n")[0]
+                    write-host ('{0} {1} {2} {3}' -f ($nextevent.TimeCreated.ToString()).padright(23, ' '), $nextevent.Id.ToString().padright(10, ' '), $nextevent.LevelDisplayName.ToString().padright(15, ' '), $shortmessage)    
+                    
+                }
+            }
+            $lastevent=$newevent[0]        
+        }
+        
+       sleep 1
+       
+    }
+}
+
+
+
 function List-WifiProfiles()
 {
 <#
@@ -880,9 +1071,9 @@ Function Scan-WifiAPs()
                 else
                 {
                     
-                    if($nextline -match "^\s{4}Authentication\s{1,24}\s:\s(.*)"){$Authentication=$Matches[1]}
-                    if($nextline -match "^\s{4}Encryption\s{1,24}\s:\s(.*)"){ $Encryption=$Matches[1]}
-                    if($nextline -match "^\s{4}BSSID\s[0-9]{1,5}\s{1,24}\s:\s(.*)")
+                    if($nextline -match "^\s{4}Authentication\s{1,24}\s:\s([a-zA-Z0-9-]*)"){$Authentication=$Matches[1]}
+                    if($nextline -match "^\s{4}Encryption\s{1,24}\s:\s([a-zA-Z0-9-]*)"){ $Encryption=$Matches[1]}
+                    if($nextline -match "^\s{4}BSSID\s[0-9]{1,5}\s{1,24}\s:\s([0-9a-f:]*)")
                     { 
                         if($lastLineisChannel -eq $true)
                         {
@@ -899,9 +1090,9 @@ Function Scan-WifiAPs()
                         }
                         $BSSID=$Matches[1]
                     }
-                    if($nextline -match "^\s{9}Signal\s{1,24}\s:\s(.*)"){ $Signal=$Matches[1]}
-                    if($nextline -match "^\s{9}Radio\stype\s{1,24}\s:\s(.*)"){ $Radio=$Matches[1]}
-                    if($nextline -match "^\s{9}Channel\s{1,24}\s:\s(.*)"){ $Channel=$Matches[1]; $lastLineisChannel=$true}
+                    if($nextline -match "^\s{9}Signal\s{1,24}\s:\s([0-9%]*)"){ $Signal=$Matches[1]}
+                    if($nextline -match "^\s{9}Radio\stype\s{1,24}\s:\s([0-9a-z\.]*)"){ $Radio=$Matches[1]}
+                    if($nextline -match "^\s{9}Channel\s{1,24}\s:\s([0-9]*)"){ $Channel=$Matches[1]; $lastLineisChannel=$true}
                     
                     
 
@@ -1299,3 +1490,4 @@ function DateEcho($Var)
     
 
 }
+

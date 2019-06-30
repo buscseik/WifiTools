@@ -24,3 +24,6 @@ Install-Module WifiTools
 * Stay-Connected
 * Monitor-WifiState
 * Get-WifiState
+* Connect-WifibyBssid
+* Get-WifiLog
+* Monitor-WifiLog
