@@ -2,7 +2,7 @@
 RootModule="WifiTools.psm1"
 GUID="488127aa-8772-4319-9a62-31c726c09d1a"
 Author="Krisztian Buscsei"
-ModuleVersion="1.3"
+ModuleVersion="1.4"
 Description="A set of tools that can simplify handle Wi-Fi profiles, connection. Also additional tools that closely related to networking and Wi-Fi."
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -14,7 +14,7 @@ PrivateData = @{
     PSData = @{
         # The primary categorization of this module (from the TechNet Gallery tech tree).
         #Category = ""
-        
+
         RequiredAssemblies = @('ManagedWifi.dll')
 
         # Keyword tags to help users find this module via navigations and search.

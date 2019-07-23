@@ -17,7 +17,7 @@
 function Show-WifiState()
 {
 <#
-   
+
 .DESCRIPTION
    This function will diplay the current wireless connection state.
    Displayed information based on built in Windows command:
@@ -31,7 +31,7 @@ function Show-WifiState()
 
 
     $SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -like "Wi*"}
-    
+
         [WifiState]$CurrentState=[WiFiState]::new()
         $CurrentState.StateTime=get-date
         $FullStat=$(netsh wlan show interfaces)
@@ -48,13 +48,13 @@ function Show-WifiState()
             if($nextLine -match "^    Signal\s{10,35}:\s(.*)"){$CurrentState.Signal=$Matches[1]}
             if($nextLine -match "^    Receive\srate\s\(Mbps\)\s{2,15}:\s(.*)"){$CurrentState.RxRate=$Matches[1]}
             if($nextLine -match "^    Transmit\srate\s\(Mbps\)\s{2,15}:\s(.*)"){$CurrentState.TxRate=$Matches[1]}
-            
+
 
         }
 
-        
-        return $CurrentState 
-    
+
+        return $CurrentState
+
 }
 
 
@@ -63,19 +63,19 @@ function Show-WifiState()
 function Monitor-WifiState()
 {
 <#
-   
+
 .DESCRIPTION
    This function will help you to monitor wireless connection.
 
 .PARAMETER refreshTime
    Set refresh time.
 
-.PARAMETER LogMode 
+.PARAMETER LogMode
     Switch between monitor and log mode.
 
 .EXAMPLE
-   Monitor-WifiState 5 
-   Monitor-WifiState -refreshTime 5 
+   Monitor-WifiState 5
+   Monitor-WifiState -refreshTime 5
 
    Will dispaly and refresh wirless connection state in every 5 sec.
 
@@ -89,37 +89,37 @@ function Monitor-WifiState()
 #>
 
     param([Parameter(Mandatory=$true)][int]$refreshTime, [switch]$LogMode=$false)
-    
-    
+
+
         while($true)
         {
-            
-             $CurrentState=Show-WifiState 
-             
+
+             $CurrentState=Show-WifiState
+
              if($LogMode -eq $true)
              {
                 $($CurrentState | Format-Table -HideTableHeaders | Out-String).trim() | DateEcho
-                
+
              }
              else
              {
                 Clear-host
                 $CurrentState | Write-Output
              }
-            
-            
+
+
             sleep $refreshTime
         }
-    
+
 }
 
 Function Get-PublicIP()
 {
 <#
-   
+
 .DESCRIPTION
    This function will return with IPv4 public address
-   
+
    This function need live internet connection, otherwise will throw an exception.
 
 .EXAMPLE
@@ -129,7 +129,7 @@ Function Get-PublicIP()
 
 #>
 	param([Switch]$ipv6=$false)
-    
+
 	if(-not $ipv6)
 	{
 		$Uri = 'ipv4bot.whatismyipaddress.com'
@@ -139,25 +139,57 @@ Function Get-PublicIP()
 	{
 		$Uri = 'ipv6bot.whatismyipaddress.com'
 		Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content
-	
+
 	}
-	
+
 }
+function Export-WifiProfiles
+{
+<#
+
+.DESCRIPTION
+   This function can help you to export all stored wifi profile to current folder
+
+.EXAMPLE
+   Export-WifiProfiles
+#>
+
+    netsh wlan export profile folder=$((get-location).path)
+
+    
+
+}
+
+Import-WifiProfiles
+{
+<#
+
+.DESCRIPTION
+   This function can help you to import all stored wifi profile from current folder
+
+.EXAMPLE
+   Import-WifiProfiles
+#>
+
+    ls *.xml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
+
+}
+
 
 function Connect-WiFi()
 {
 <#
-   
+
 .DESCRIPTION
    This function can help you to connet specified wireless network.
-   
-       
+
+
 .PARAMETER ProfileName
    You can specify the exact profile name, where you want to connect.
 
 .EXAMPLE
    Connect-WiFi -ProfileName TP007
-   
+
    Connection will be proceed only if profile exists.
 
 .EXAMPLE
@@ -167,7 +199,7 @@ function Connect-WiFi()
 #>
     [CmdletBinding()]
     param()
-    
+
     DynamicParam {
         $ParameterName="ProfileName"
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -211,7 +243,7 @@ function Connect-WiFi()
     {
         if($nextline -match "^.*Profile\s*:\s$ProfileName$")
         {
-            $IsProfileExist=$true      
+            $IsProfileExist=$true
         }
     }
     if($IsProfileExist)
@@ -219,8 +251,8 @@ function Connect-WiFi()
         if($SelectedInterface -eq $null)
         {
             $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
-        } 
-        netsh wlan connect name=$ProfileName interface=$SelectedInterface   
+        }
+        netsh wlan connect name=$ProfileName interface=$SelectedInterface
     }
     else
     {
@@ -231,17 +263,17 @@ function Connect-WiFi()
 function Connect-WifibyBssid()
 {
 <#
-   
+
 .DESCRIPTION
    This function can help you to connet specified wireless network based on BSSID
-   
-       
+
+
 .PARAMETER ProfileName
    You can specify the exact profile name and the BSSID where you want to connect.
 
 .EXAMPLE
    Connect-WiFi -ProfileName TP007 -
-   
+
    Connection will be proceed only if profile exists.
 
 .EXAMPLE
@@ -253,7 +285,7 @@ function Connect-WifibyBssid()
     param(
         [Parameter(Mandatory=$true,Position=3,HelpMessage="Please provide mac address for targeted AP")][string]$APMac
     )
-    
+
     DynamicParam {
         $ParameterName="ProfileName"
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -291,7 +323,7 @@ function Connect-WifibyBssid()
         $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
     }
     process{
-    
+
         $managedwifilib=[Reflection.Assembly]::LoadFile("$PSScriptRoot\ManagedWifi.dll")
 
 
@@ -309,18 +341,18 @@ function Connect-WifibyBssid()
 
     }
 
-        
+
 }
 
 
 function Get-WifiLog()
 {
 <#
-   
+
 .DESCRIPTION
    This function will list all wifi related logs stored on Windows.
-   
-       
+
+
 .PARAMETER ProfileName
    You can speficy if only errors need to be displayed
 
@@ -334,9 +366,9 @@ function Get-WifiLog()
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false
-        
+
     )
-    
+
     if($OnlyError)
     {
         Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | where LevelDisplayName -EQ Error
@@ -352,11 +384,11 @@ function Get-WifiLog()
 function Monitor-WifiLog()
 {
  <#
-   
+
 .DESCRIPTION
    This function will monitor all wifi related logs being created from start time.
-   
-       
+
+
 .PARAMETER ProfileName
    You can speficy if only errors need to be displayed
 
@@ -364,11 +396,11 @@ function Monitor-WifiLog()
    Monitor-WifiLog
 
    Monitor-WifiLog -OnlyError
-#>   
+#>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false
-        
+
     )
     $lastevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 1
 
@@ -376,7 +408,7 @@ function Monitor-WifiLog()
     while($true)
     {
         $newevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 1
-        
+
         if ($lastevent.TimeCreated -ne $newevent.TimeCreated)
         {
             if($OnlyError)
@@ -392,15 +424,15 @@ function Monitor-WifiLog()
                 if($nextevent.TimeCreated -ne $lastevent.TimeCreated)
                 {
                     $shortmessage=$nextevent.Message.split("`n")[0]
-                    write-host ('{0} {1} {2} {3}' -f ($nextevent.TimeCreated.ToString()).padright(23, ' '), $nextevent.Id.ToString().padright(10, ' '), $nextevent.LevelDisplayName.ToString().padright(15, ' '), $shortmessage)    
-                    
+                    write-host ('{0} {1} {2} {3}' -f ($nextevent.TimeCreated.ToString()).padright(23, ' '), $nextevent.Id.ToString().padright(10, ' '), $nextevent.LevelDisplayName.ToString().padright(15, ' '), $shortmessage)
+
                 }
             }
-            $lastevent=$newevent[0]        
+            $lastevent=$newevent[0]
         }
-        
+
        sleep 1
-       
+
     }
 }
 
@@ -409,11 +441,11 @@ function Monitor-WifiLog()
 function List-WifiProfiles()
 {
 <#
-   
+
 .DESCRIPTION
    This function can help you to list available wireless profiles.
-   
-       
+
+
 .PARAMETER profileName
    You can specify the exact profile to list profiles.
 .PARAMETER profileRegex
@@ -439,13 +471,13 @@ function List-WifiProfiles()
     param($profileName, $profileRegex, $profileContain, $profileWildCard)
 
     $AllProfiles=$(netsh wlan show profiles)
-    
+
         if(-not ($profileName -eq "" -or $profileName -eq $null))
         {
             foreach($nextLine in $AllProfiles)
             {
                 if($nextLine -like "* : *" -and $nextLine.split(":")[1] -eq " $profileName") {Write-Host $nextLine}
-                
+
             }
         }
         elseif(-not ($profileContain -eq "" -or $profileContain -eq $null))
@@ -459,7 +491,7 @@ function List-WifiProfiles()
                         Write-Host $nextLine
                     }
                 }
-            }   
+            }
         }
         elseif(-not($profileRegex -eq "" -or $profileRegex -eq $null))
         {
@@ -472,7 +504,7 @@ function List-WifiProfiles()
                         Write-Host $nextLine
                     }
                 }
-            }           
+            }
         }
         elseif(-not($profileWildCard -eq "" -or $profileWildCard -eq $null))
         {
@@ -485,24 +517,24 @@ function List-WifiProfiles()
                         Write-Host $nextLine
                     }
                 }
-            }           
+            }
         }
         else
         {
             Write-Host ($AllProfiles | Out-String)
         }
-    
-    
+
+
 }
 
 function Delete-WifiProfiles()
 {
 <#
-   
+
 .DESCRIPTION
    This function can help you to delete wireless profiles.
-   
-       
+
+
 .PARAMETER profileName
    You can specify the exact profile to delete profiles.
 .PARAMETER profileRegex
@@ -549,12 +581,12 @@ function Delete-WifiProfiles()
 
     process{
         $AllProfiles=$(netsh wlan show profiles)
-    
+
         if(-not ($profileName -eq "" -or $profileName -eq $null))
         {
             foreach($nextLine in $AllProfiles)
             {
-                if($nextLine -like "* : *" -and $nextLine.split(":")[1] -eq " $profileName") 
+                if($nextLine -like "* : *" -and $nextLine.split(":")[1] -eq " $profileName")
                 {
                     $ProfielToDelete=$nextLine.split(":")[1].Trim(" ")
                     netsh wlan delete profile $ProfielToDelete
@@ -573,7 +605,7 @@ function Delete-WifiProfiles()
                         netsh wlan delete profile $ProfielToDelete
                     }
                 }
-            }   
+            }
         }
         elseif(-not($profileRegex -eq "" -or $profileRegex -eq $null))
         {
@@ -587,7 +619,7 @@ function Delete-WifiProfiles()
                         netsh wlan delete profile $ProfielToDelete
                     }
                 }
-            }           
+            }
         }
         elseif(-not($profileWildCard -eq "" -or $profileWildCard -eq $null))
         {
@@ -601,7 +633,7 @@ function Delete-WifiProfiles()
                         netsh wlan delete profile $ProfielToDelete
                     }
                 }
-            }           
+            }
         }
         else
         {
@@ -614,17 +646,17 @@ function Delete-WifiProfiles()
                 }
             }
         }
-    
+
     }
 }
 
 Function Show-WifiInterface()
 {
 <#
-   
+
 .DESCRIPTION
    This funtcion will display the same information that "netsh wlan show interfaces command" do.
-       
+
 .EXAMPLE
    Show-WifiInterface
 
@@ -635,21 +667,21 @@ Function Show-WifiInterface()
 Function Show-IPConfig
 {
 <#
-   
+
 .DESCRIPTION
-   This function display the same information as the traditional ipconfig /all, 
+   This function display the same information as the traditional ipconfig /all,
    but in userfriendly filterable format.
-       
+
 .PARAMETER Interface
    Specifies the nam of the interface.
-   
+
 
 .EXAMPLE
    Show-IPConfig -interface Ethernet
    Show-IPConfig Eth
 
-   You can use only part of the full interface name. 
-   
+   You can use only part of the full interface name.
+
    get-netAdapter command will list the available network intrafaces.
 
 #>
@@ -679,7 +711,7 @@ Function Show-IPConfig
     Process{
         $SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -eq $Interface}
         $Interface=$SelectedAdapter.Name
-        
+
         $AllIpConifig=$(ipconfig /all)
         $needToPrintNextLine=$false
         $ignoreWhiteSpace=$false
@@ -705,7 +737,7 @@ Function Show-IPConfig
                         $needToPrintNextLine=$false
                         $ignoreWhiteSpace=$false
                     }
-            
+
 
                 }
                 else
@@ -723,10 +755,10 @@ Function Show-IPConfig
 function Release-Renew-IP()
 {
 <#
-   
+
 .DESCRIPTION
    This funtcion Will proceed the complete dhcp release renew cycle
-   
+
 
 .EXAMPLE
     Release-Renew-IP
@@ -740,11 +772,11 @@ function Release-Renew-IP()
 function Disconnect-Wifi()
 {
 <#
-   
+
 .DESCRIPTION
    This funtcion Will disconnect from current wireless network
 
-   
+
 
 .EXAMPLE
    Disconnect-Wifi
@@ -757,7 +789,7 @@ function Disconnect-Wifi()
     param()
 
      DynamicParam {
- 
+
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
         $ParameterNameInterface="InterfaceName"
         $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
@@ -777,7 +809,7 @@ function Disconnect-Wifi()
         return $RuntimeParameterDictionary
     }
     begin{
-        
+
         $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
     }
 
@@ -785,27 +817,27 @@ function Disconnect-Wifi()
         if($SelectedInterface -eq $null)
         {
             $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}  |Select-Object -First 1 | & {process{return $_.Name}}
-        } 
+        }
         netsh wlan disconnect interface=$SelectedInterface
     }
-    
+
 }
 
 
 function Create-WifiProfile()
 {
     <#
-   
+
 .DESCRIPTION
    This funtcion Will create a Wireless Profile
-       
+
 .PARAMETER WLanName
    Define SSID for the wireless network.
 .PARAMETER Passwd
    Define the secretkey of wireless network.
 .PARAMETER WPA
    This switch can help to generate a WPA profile(Default:WPA2)
-   
+
 
 .EXAMPLE
    Create-WifiProfile -WlanName "MyNetworkName" -Passwd "networkpassword"
@@ -826,7 +858,7 @@ function Create-WifiProfile()
 
 #>
     param([Parameter(Mandatory=$true, HelpMessage="Please add Wireless network name")]
-    [string]$WLanName, 
+    [string]$WLanName,
     [string]$Passwd,
     [Parameter(Mandatory=$false, HelpMessage="This switch will generate a WPA profile instead of WPA2")]
     [switch]$WPA=$false)
@@ -917,13 +949,13 @@ $XMLProfile= @"
 function Create-W4AWifiProfile()
 {
 <#
-   
+
 .DESCRIPTION
    This funtcion Will create a W4A Wireless Profile.
-       
+
 .PARAMETER NetworkName
    Specifies custom name for W4A network
-   
+
 
 .EXAMPLE
    Create-W4AProfile "Custom Wi-Free"
@@ -940,7 +972,7 @@ $XMLProfile= @"
 	<name>$NetworkName</name>
 	<SSIDConfig>
 		<SSID>
-			
+
 			<name>$NetworkName</name>
 		</SSID>
 		<nonBroadcast>false</nonBroadcast>
@@ -996,12 +1028,12 @@ class WifiAP
 }
 Function Scan-WifiAPs()
 {
- 
+
 <#
-   
+
 .DESCRIPTION
    This funtcion designed to list available APs and details
-       
+
 .PARAMETER profileNameWildCard
    Specifies wildcard filter for SSID
 .PARAMETER BSSIDWildCard
@@ -1012,29 +1044,29 @@ Function Scan-WifiAPs()
 
     Name           : TP007
     Authentication : WPA2-Personal
-    Encryption     : CCMP 
+    Encryption     : CCMP
     BSSID          : 64:70:02:9a:2a:c8
-    Signal         : 80%  
+    Signal         : 80%
     Radio          : 802.11n
-    Channel        : 11 
+    Channel        : 11
 
 .EXAMPLE
    Scan-WifiAPs | Format-Table
 
     Name             Authentication  Encryption BSSID             Signal Radio    Channel
     ----             --------------  ---------- -----             ------ -----    -------
-    Horizon Wi-Free  WPA2-Enterprise CCMP       de:53:1c:ae:a3:b4 99%    802.11n  5      
-    Horizon Wi-Free  WPA2-Enterprise CCMP       0a:95:2a:5d:1b:cc 56%    802.11n  1      
-    Horizon Wi-Free  WPA2-Enterprise CCMP       5c:a3:9d:e9:25:19 28%    802.11n  6      
-    VM521D7B9        WPA2-Personal   CCMP       dc:53:7c:ae:a3:b4 99%    802.11n  5      
-    VM521D7B9-5      WPA2-Personal   CCMP       dc:53:7c:ae:a3:ac 98%    802.11ac 40     
-    PS4-BE73F184585B WPA2-Personal   CCMP       60:5b:b4:45:f2:3f 46%    802.11n  6      
-    UPC5912998       WPA2-Personal   CCMP       08:95:2a:5d:1b:ca 65%    802.11n  1      
-    TP007            WPA2-Personal   CCMP       64:70:02:9a:2a:c8 60%    802.11n  11  
+    Horizon Wi-Free  WPA2-Enterprise CCMP       de:53:1c:ae:a3:b4 99%    802.11n  5
+    Horizon Wi-Free  WPA2-Enterprise CCMP       0a:95:2a:5d:1b:cc 56%    802.11n  1
+    Horizon Wi-Free  WPA2-Enterprise CCMP       5c:a3:9d:e9:25:19 28%    802.11n  6
+    VM521D7B9        WPA2-Personal   CCMP       dc:53:7c:ae:a3:b4 99%    802.11n  5
+    VM521D7B9-5      WPA2-Personal   CCMP       dc:53:7c:ae:a3:ac 98%    802.11ac 40
+    PS4-BE73F184585B WPA2-Personal   CCMP       60:5b:b4:45:f2:3f 46%    802.11n  6
+    UPC5912998       WPA2-Personal   CCMP       08:95:2a:5d:1b:ca 65%    802.11n  1
+    TP007            WPA2-Personal   CCMP       64:70:02:9a:2a:c8 60%    802.11n  11
 #>
 
    param([string]$profileNameWildCard, [string]$BSSIDWildCard)
-    
+
     #clear-host
     $AllAP=$(netsh wlan show networks mode=bssid)
     #Write-Host $($AllAP | Out-String)
@@ -1047,7 +1079,7 @@ Function Scan-WifiAPs()
         {
             $ProcessNextLine=$true
             $Name=[regex]::match($nextline,"^SSID\s[0-9]{1,4}\s:\s(.*)").captures.groups[1].value
-            
+
         }
         else
         {
@@ -1070,11 +1102,11 @@ Function Scan-WifiAPs()
                 }
                 else
                 {
-                    
+
                     if($nextline -match "^\s{4}Authentication\s{1,24}\s:\s([a-zA-Z0-9-]*)"){$Authentication=$Matches[1]}
                     if($nextline -match "^\s{4}Encryption\s{1,24}\s:\s([a-zA-Z0-9-]*)"){ $Encryption=$Matches[1]}
                     if($nextline -match "^\s{4}BSSID\s[0-9]{1,5}\s{1,24}\s:\s([0-9a-f:]*)")
-                    { 
+                    {
                         if($lastLineisChannel -eq $true)
                         {
                             [WifiAP]$NewAP = [WifiAP]::new()
@@ -1085,7 +1117,7 @@ Function Scan-WifiAPs()
                             $NewAP.Encryption=$Encryption
                             $NewAP.Signal=$Signal
                             $NewAP.Radio=$Radio
-                            $ListOfAPs+=$NewAP   
+                            $ListOfAPs+=$NewAP
                             $lastLineisChannel=$false
                         }
                         $BSSID=$Matches[1]
@@ -1093,12 +1125,12 @@ Function Scan-WifiAPs()
                     if($nextline -match "^\s{9}Signal\s{1,24}\s:\s([0-9%]*)"){ $Signal=$Matches[1]}
                     if($nextline -match "^\s{9}Radio\stype\s{1,24}\s:\s([0-9a-z\.]*)"){ $Radio=$Matches[1]}
                     if($nextline -match "^\s{9}Channel\s{1,24}\s:\s([0-9]*)"){ $Channel=$Matches[1]; $lastLineisChannel=$true}
-                    
-                    
+
+
 
                 }
             }
-        }   
+        }
     }
     if($profileNameWildCard -ne "")
     {
@@ -1131,15 +1163,15 @@ Function Get-WifiProfiles()
 Function Get-TCPConnectionsInfo()
 {
 <#
-   
+
 .DESCRIPTION
    This function will get back information about tcp connection.
-       
-   
+
+
 
 .EXAMPLE
    Get-TCPConnectionsInfo |Format-Table
-   
+
 
 RemoteDNS                       RemoteIP                    RemotePort ProcessID ProcessName            Company               LocalIP                     LocalPort
 ---------                       --------                    ---------- --------- -----------            -------               -------                     ---------
@@ -1160,7 +1192,7 @@ KriszLaptop                     127.0.0.1                         1706      7388
 
 
 #>
-Get-NetTCPConnection -State Established |  
+Get-NetTCPConnection -State Established |
 foreach {
         if($lastItem -eq $null)
         {
@@ -1171,30 +1203,30 @@ foreach {
             $Name=Resolve-DnsName $_.RemoteAddress -ErrorAction SilentlyContinue;
             $lastItem=$_.RemoteAddress
         }
-        
+
         $Process=Get-Process | where Id -eq $_.OwningProcess
-        
+
         [pscustomobject]@{RemoteDNS=$Name.Server; RemoteIP=$_.RemoteAddress;RemotePort=$_.RemotePort;ProcessID=$_.OwningProcess;ProcessName=$Process.ProcessName;Company=$Process.Company; LocalIP=$_.LocalAddress; LocalPort=$_.LocalPort}
-        
-    
-}  
+
+
+}
 }
 
 
 function Stay-Connected()
 {
 <#
-   
+
 .DESCRIPTION
    This function will chechk connection to specified network, and it will attempt to re-connect in case of long disconnection.
-   
-       
+
+
 .PARAMETER ProfileName
    You can specify the exact profile name, where you want to connect.
 
 .EXAMPLE
    Stay-connected -ProfileName TP007
-   
+
    Connection will be proceed only if profile exists.
 
 .EXAMPLE
@@ -1204,7 +1236,7 @@ function Stay-Connected()
 #>
     [CmdletBinding()]
     param()
-    
+
     DynamicParam {
         $ParameterName="ProfileName"
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
@@ -1249,7 +1281,7 @@ function Stay-Connected()
         {
             if($nextline -match "^.*Profile\s*:\s$ProfileName$")
             {
-                $IsProfileExist=$true      
+                $IsProfileExist=$true
             }
         }
         if($IsProfileExist)
@@ -1257,7 +1289,7 @@ function Stay-Connected()
             if($SelectedInterface -eq $null)
             {
                 $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
-            } 
+            }
             $SleepCounter=0
             while($true)
             {
@@ -1271,8 +1303,8 @@ function Stay-Connected()
                     if($SleepCounter -gt 10)
                     {
                         DateEcho "Connection attempt"
-                        netsh wlan connect name=$ProfileName interface=$SelectedInterface       
-                        
+                        netsh wlan connect name=$ProfileName interface=$SelectedInterface
+
                     }
                 }
                 else
@@ -1280,12 +1312,12 @@ function Stay-Connected()
                     $SleepCounter=0
                     if($Status -match ".*:\s(.*)")
                     {
-                        DateEcho "Network state: $($Matches[1])"    
+                        DateEcho "Network state: $($Matches[1])"
                     }
-                    
+
                 }
 
-                
+
             }
         }
         else
@@ -1298,11 +1330,11 @@ function Stay-Connected()
 function Get-WifiState()
 {
     <#
-   
+
 .DESCRIPTION
    This function will return with object that contain the state of wifi interface.
-   
-       
+
+
 .PARAMETER InterfaceName
    You can specify the exact wifi interface name, where you want to connect.
 
@@ -1310,16 +1342,16 @@ function Get-WifiState()
 .EXAMPLE
    Get-WifiState -InterfaceName Wi-Fi
 
-   
+
 #>
     [CmdletBinding()]
     param()
-    
+
     DynamicParam {
-        
+
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        
+
 
         $ParameterNameInterface="InterfaceName"
         $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
@@ -1356,18 +1388,18 @@ function Get-WifiState()
         $LogLine=""
         $LogCsvHeader=""
         $logCsvLine=""
-        
-        
+
+
 
         if($SelectedInterface -eq $null)
         {
             $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
         }
         $InterfaceIP=((Get-NetIPAddress | Where-Object {$_.interfacealias -like $($SelectedInterface) -and $_.AddressFamily -eq "IPv4"}).IPv4Address).ToString()
-        
+
         $Interface=""
         $Interface=netsh wlan show interface $SelectedInterface
-        
+
         $State=$Interface[7].Split(":")[1].Trim()
         if( "$($State)" -eq "connected" )
         {
@@ -1377,12 +1409,12 @@ function Get-WifiState()
             $ReceiveRate=$Interface[16].Split(":")[1].Trim()
             $TransmitRate=$Interface[17].Split(":")[1].Trim()
             $Signal=$Interface[18].Split(":")[1].Trim()
-            $CurrentChannel=$Interface[15].Split(":")[1].Trim()            
+            $CurrentChannel=$Interface[15].Split(":")[1].Trim()
         }
-        $LogHeader="{0,-16} {1,-15} {2,-20} {3,-18} {4,-15} {5,-7} {6,-7} {7,-7} {8,-7}" -f "InterfaceIP", "State", "ESSID", "BSSID", "Authentication", "RxRate","TxRate", "Signal", "Channel" 
+        $LogHeader="{0,-16} {1,-15} {2,-20} {3,-18} {4,-15} {5,-7} {6,-7} {7,-7} {8,-7}" -f "InterfaceIP", "State", "ESSID", "BSSID", "Authentication", "RxRate","TxRate", "Signal", "Channel"
         $LogHeader+="`n"+"{0} {1} {2} {3} {4} {5} {6} {7} {8}" -f "".PadLeft(16,"-"), "".PadLeft(15,"-"), "".PadLeft(20,"-"), "".PadLeft(18,"-"), "".PadLeft(15,"-"), "".PadLeft(7,"-"), "".PadLeft(7,"-"), "".PadLeft(7,"-"), "".PadLeft(7,"-")
         $LogLine="{0,-16} {1,-15} {2,-20} {3,-18} {4,-15} {5,-7} {6,-7} {7,-7} {8,-7}" -f $InterfaceIP, $State, $ESSID, $BSSID, $Authentication, $ReceiveRate, $TransmitRate, $Signal, $CurrentChannel
-        $LogCsvHeader="{0};{1};{2};{3};{4};{5};{6};{7};{8}" -f "InterfaceIP", "State", "ESSID", "BSSID", "Authentication", "RxRate","TxRate", "Signal", "Channel" 
+        $LogCsvHeader="{0};{1};{2};{3};{4};{5};{6};{7};{8}" -f "InterfaceIP", "State", "ESSID", "BSSID", "Authentication", "RxRate","TxRate", "Signal", "Channel"
         $logCsvLine="{0};{1};{2};{3};{4};{5};{6};{7};{8}" -f $InterfaceIP, $State, $ESSID, $BSSID, $Authentication, $ReceiveRate, $TransmitRate, $Signal, $CurrentChannel
 
         return [pscustomobject]@{InterfaceIP=$InterfaceIP;State=$State;ESSID=$ESSID;BSSID=$BSSID;Authentication=$Authentication;ReceiveRate=$ReceiveRate;TransmitRate=$TransmitRate;Signal=$Signal;CurrentChannel=$CurrentChannel;`
@@ -1394,11 +1426,11 @@ function Get-WifiState()
 Function Monitor-WifiState()
 {
  <#
-   
+
 .DESCRIPTION
    This function will monitor periodicly the state of wifi interface.
-   
-       
+
+
 .PARAMETER InterfaceName
    You can specify the exact wifi interface name, where you want to connect.
 
@@ -1406,16 +1438,16 @@ Function Monitor-WifiState()
 .EXAMPLE
    Get-WifiState -InterfaceName Wi-Fi
 
-   
+
 #>
     [CmdletBinding()]
     param([int]$CheckTime=1)
-    
+
     DynamicParam {
-        
+
         $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
 
-        
+
 
         $ParameterNameInterface="InterfaceName"
         $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
@@ -1439,7 +1471,7 @@ Function Monitor-WifiState()
     }
     process
     {
-    
+
         while($true)
         {
 
@@ -1462,7 +1494,7 @@ Function Monitor-WifiState()
 function DateEcho($Var)
 {
 <#
-   
+
 .DESCRIPTION
    This function will add an extra time stamp for all input.
    Pipeline enabled command.
@@ -1472,7 +1504,7 @@ function DateEcho($Var)
    26.01.2017-22:24:08> This message need a timesamp
 
 .EXAMPLE
-    ping 8.8.8.8 -t | DateEcho   
+    ping 8.8.8.8 -t | DateEcho
 
     26.01.2017-22:24:48> Reply from 8.8.8.8: bytes=32 time=10ms TTL=57
     26.01.2017-22:24:49> Reply from 8.8.8.8: bytes=32 time=13ms TTL=57
@@ -1480,14 +1512,13 @@ function DateEcho($Var)
     26.01.2017-22:24:51> Reply from 8.8.8.8: bytes=32 time=10ms TTL=57
     26.01.2017-22:24:52> Reply from 8.8.8.8: bytes=32 time=10ms TTL=57
 #>
-    
+
     process
     {
          $TimeStamp=Get-Date -Format "dd.MM.yyyy-HH:mm:ss> "
         "$TimeStamp$Var$_"
-        
+
     }
-    
+
 
 }
-
