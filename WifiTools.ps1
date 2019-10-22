@@ -160,7 +160,7 @@ function Export-WifiProfiles
 
 }
 
-Import-WifiProfiles
+function Import-WifiProfiles
 {
 <#
 
