@@ -30,8 +30,8 @@ function Show-WifiState()
 
 
 
-    $SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -like "Wi*"}
-
+    $SelectedAdapter=netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}
+    #$SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -like "Wi*"}
         [WifiState]$CurrentState=[WiFiState]::new()
         $CurrentState.StateTime=get-date
         $FullStat=$(netsh wlan show interfaces)
@@ -151,16 +151,49 @@ function Export-WifiProfiles
    This function can help you to export all stored wifi profile to current folder
 
 .EXAMPLE
+   It will export all profile to current folder
    Export-WifiProfiles
-#>
 
-    netsh wlan export profile folder=$((get-location).path)
+   It will export only the specified profile to current folder.
+   Export-WifiProfiles -ProfileName SSID_profile_name
+#>
+    [CmdletBinding()]
+    param()
+    DynamicParam {
+        $ParameterName="ProfileName"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $false
+        $ParameterAttribute.Position = 1
+        $AttributeCollection.Add($ParameterAttribute)
+        $arrSet = Get-WifiProfiles
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+
+
+        return $RuntimeParameterDictionary
+
+    }
+    begin{
+        $ProfileName = $PsBoundParameters[$ParameterName]
+    }
+    process{
+        if($ProfileName -ne $null){
+            netsh wlan export profile name="$ProfileName" folder=$((get-location).path)
+        }
+        else{
+            netsh wlan export profile folder=$((get-location).path)
+        }
+    }
 
     
 
 }
 
-Import-WifiProfiles
+function Import-WifiProfiles
 {
 <#
 
@@ -168,14 +201,145 @@ Import-WifiProfiles
    This function can help you to import all stored wifi profile from current folder
 
 .EXAMPLE
+   It will Import all profile to current folder
    Import-WifiProfiles
+
+   It will Import only the specified profile to current folder.
+   Import-WifiProfiles -ProfileNameXml WiFi-SSID_Name.xml
 #>
 
-    ls *.xml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
+    [CmdletBinding()]
+    param()
+    DynamicParam {
+        $ParameterName="ProfileNameXml"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $false
+        $ParameterAttribute.Position = 1
+        $AttributeCollection.Add($ParameterAttribute)
+        $arrSet = (ls *.xml).Name
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
 
+
+        return $RuntimeParameterDictionary
+
+    }
+    begin{
+        $ProfileNameXml = $PsBoundParameters[$ParameterName]
+    }
+    process{
+        if($ProfileNameXml -ne $null){
+            ls $ProfileNameXml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
+        }
+        else{
+            
+            ls *.xml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
+        }
+    }
 }
 
+function Disable-WifiProfiles
+{
+<#
+.DESCRIPTION
+   This function can help you to disable all stored wifi profile. 
+   The will be exported and stored under temp folder as xml than delete from Windows.
 
+.EXAMPLE
+   It will Disable all profile to current folder
+   Disable-WifiProfiles
+#>
+
+   $currentlocation=Get-Location
+   cd $env:TEMP
+   mkdir DisabledWifiProfiles  -ErrorAction Ignore
+   cd DisabledWifiProfiles
+
+   Export-WifiProfiles
+   Delete-WifiProfiles
+      
+   cd $currentlocation
+}
+
+function Enable-WifiProfiles
+{
+<#
+.DESCRIPTION
+   This function can help you to enable all previously disabled wifi profile. 
+   The will be import profiles from previously stored location.
+
+.EXAMPLE
+   It will Enable all profile to current folder
+   Enable-WifiProfiles
+#>
+
+   $currentlocation=Get-Location
+   cd $env:TEMP
+   cd DisabledWifiProfiles  
+
+   Import-WifiProfiles
+   rm *
+    
+   cd $currentlocation
+}
+
+Function Show-WifiProfilePassword
+{
+    <#
+
+.DESCRIPTION
+   This function can show the password for specified wifi profile
+
+.EXAMPLE
+   It will export all profile to current folder
+   Export-WifiProfiles
+
+   It will export only the specified profile to current folder.
+   Export-WifiProfiles -ProfileName SSID_profile_name
+#>
+    [CmdletBinding()]
+    param()
+    DynamicParam {
+        $ParameterName="ProfileName"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 1
+        $AttributeCollection.Add($ParameterAttribute)
+        $arrSet = Get-WifiProfiles
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+
+
+        return $RuntimeParameterDictionary
+
+    }
+    begin{
+        $ProfileName = $PsBoundParameters[$ParameterName]
+    }
+    process{
+        $currentlocation=Get-Location
+        cd $env:TEMP
+        mkdir TempWifiProfiles -ErrorAction Ignore
+        cd TempWifiProfiles
+    
+        netsh wlan export profile name="$ProfileName" folder=$((get-location).path) key=clear >$null 2>&1
+        [XML]$WifiProfileXmlDoc = (ls *$ProfileName* | Get-Content)
+        $ssidPwd=$WifiProfileXmlDoc.WLANProfile.MSM.security.sharedKey.keyMaterial
+
+        rm *$ProfileName*
+        cd $currentlocation
+        return $ssidPwd
+    }
+   
+}
 function Connect-WiFi()
 {
 <#
@@ -221,7 +385,8 @@ function Connect-WiFi()
         $ParameterAttributeInterface.Mandatory = $false
         $ParameterAttributeInterface.Position = 2
         $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
         $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
         $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
         $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
@@ -237,27 +402,28 @@ function Connect-WiFi()
         $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
     }
     process{
-    $allProfiles=$(netsh wlan show profiles)
-    $IsProfileExist=$false
-    foreach($nextline in $allProfiles)
-    {
-        if($nextline -match "^.*Profile\s*:\s$ProfileName$")
+        $allProfiles=$(netsh wlan show profiles)
+        $IsProfileExist=$false
+        foreach($nextline in $allProfiles)
         {
-            $IsProfileExist=$true
+            if($nextline -match "^.*Profile\s*:\s$ProfileName$")
+            {
+                $IsProfileExist=$true
+            }
         }
-    }
-    if($IsProfileExist)
-    {
-        if($SelectedInterface -eq $null)
+        if($IsProfileExist)
         {
-            $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
+            if($SelectedInterface -eq $null)
+            {
+                #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
+                $SelectedInterface=netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1 | & {process{return $_.Name}}
+            }
+            netsh wlan connect name=$ProfileName interface=$SelectedInterface
         }
-        netsh wlan connect name=$ProfileName interface=$SelectedInterface
-    }
-    else
-    {
-        Write-host "Network profile does not exists."
-    }
+        else
+        {
+            Write-host "Network profile does not exists."
+        }
     }
 }
 function Connect-WifibyBssid()
@@ -307,7 +473,8 @@ function Connect-WifibyBssid()
         $ParameterAttributeInterface.Mandatory = $false
         $ParameterAttributeInterface.Position = 2
         $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
         $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
         $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
         $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
@@ -344,13 +511,85 @@ function Connect-WifibyBssid()
 
 }
 
+function Clear-WifiLog()
+{
+<#
+
+.DESCRIPTION
+   This function will wifi related logs from Windows under "Microsoft-Windows-WLAN-AutoConfig/Operational"
+
+
+.EXAMPLE
+   Clear-WifiLog
+
+#>
+    [System.Diagnostics.Eventing.Reader.EventLogSession]::GlobalSession.ClearLog("Microsoft-Windows-WLAN-AutoConfig/Operational") 
+
+}
+
+
+function Export-WifiLog()
+{
+<#
+
+.DESCRIPTION
+   This function will export all wifi related logs stored on Windows Under 
+
+
+.PARAMETER StartTime
+   You can speficy start time where log will be exported from. The default value is "1970-01-01 00:00"
+
+.PARAMETER EndTime
+   You can speficy end time where log will be exported till. The default value is Current time
+
+.PARAMETER FileName
+   You can speficy a file name without extension where log will be exported to. The default value is "WifiLogs"
+
+.PARAMETER FileName
+   You can speficy a file name without extension where log will be exported to. The default value is "WifiLogs"
+
+.PARAMETER Xml
+   You can export log to XML, the default is csv.
+
+
+.EXAMPLE
+   Export-WifiLog
+   Export-WifiLog -Xml
+   Export-WifiLog -Xml -FileName WifiLogFile
+   Export-WifiLog -FileName WifiLogFile -StartTime "2019-01-01 00:00"
+#>
+
+    param(
+        [Parameter(Mandatory=$false, HelpMessage="Please define the start time when wifi log can be deleted")][String]$StartTime="1970-01-01 00:00", 		
+        [Parameter(Mandatory=$false, HelpMessage="Please define the end time when wifi log can be deleted")][String]$EndTime=$true, 
+        [Parameter(Mandatory=$false, HelpMessage="Please define the name of the file where log will be stored")][String]$FileName="WifiLogs", 
+	    [Parameter()][switch]$Xml
+	)
+    
+    $StartTime = [datetime]::ParseExact($StartTime,'yyyy-MM-dd HH:mm',$null)
+    
+    if($EndTime -eq $true){
+        $EndTime=Get-Date
+    }
+    else{
+        $EndTime = [datetime]::ParseExact($EndTime,'yyyy-MM-dd HH:mm',$null)
+    }
+
+    if($Xml){
+        Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational |Where-Object { $_.TimeCreated -ge $StartTime -and $_.TimeCreated -lt $EndTime }| &{process{[pscustomobject]@{TimeCreated = $_.TimeCreated; Id = $_.Id; LevelDisplayName= $_.LevelDisplayName; Message=$_.Message }}}|  Export-Csv -Path $FileName".csv" -NoTypeInformation
+    }
+    else{
+        Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational |Where-Object { $_.TimeCreated -ge $StartTime -and $_.TimeCreated -lt $EndTime }| &{process{[pscustomobject]@{TimeCreated = $_.TimeCreated; Id = $_.Id; LevelDisplayName= $_.LevelDisplayName; Message=$_.Message }}}|  Out-File -FilePath $FileName".txt"
+    }
+}
+
 
 function Get-WifiLog()
 {
 <#
 
 .DESCRIPTION
-   This function will list all wifi related logs stored on Windows.
+   This function will list all wifi related logs stored on Windows Under 
 
 
 .PARAMETER ProfileName
@@ -696,7 +935,8 @@ Function Show-IPConfig
         $ParameterAttribute.Mandatory = $true
         $ParameterAttribute.Position = 0
         $AttributeCollection.Add($ParameterAttribute)
-        $arrSet = (Get-NetAdapter).Name
+        #$arrSet = (Get-NetAdapter).Name
+        $arrSet = (netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
         $AttributeCollection.Add($ValidateSetAttribute)
         $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
@@ -709,7 +949,11 @@ Function Show-IPConfig
 
 
     Process{
-        $SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -eq $Interface}
+        $AllAdapters=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)"| Select-Object -Skip 1 | &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}        )
+        $SelectedAdapter= $AllAdapters | Where-Object {$_.Name -eq $Interface}
+        
+        #$SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -eq $Interface}
+        
         $Interface=$SelectedAdapter.Name
 
         $AllIpConifig=$(ipconfig /all)
@@ -797,7 +1041,8 @@ function Disconnect-Wifi()
         $ParameterAttributeInterface.Mandatory = $false
         $ParameterAttributeInterface.Position = 1
         $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
         $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
         $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
         $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
@@ -816,7 +1061,8 @@ function Disconnect-Wifi()
     process{
         if($SelectedInterface -eq $null)
         {
-            $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}  |Select-Object -First 1 | & {process{return $_.Name}}
+            #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}  |Select-Object -First 1 | & {process{return $_.Name}}
+            $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
         }
         netsh wlan disconnect interface=$SelectedInterface
     }
@@ -853,10 +1099,11 @@ function Create-WifiProfile()
 .EXAMPLE
     Create-WifiProfile -WlanName "MyNetworkName" -Passwd "networkpassword" -WPA
     Create-WifiProfile "MyNetworkName" "networkpassword" -WPA
+    Create-WifiProfile "MyNetworkName" "networkpassword" -WPA -PHYType ac
 
     These command will generate a WPA wireless profile with the defined name and password.
-
 #>
+    [CmdletBinding()]
     param([Parameter(Mandatory=$true, HelpMessage="Please add Wireless network name")]
     [string]$WLanName,
     [string]$Passwd,
@@ -864,16 +1111,51 @@ function Create-WifiProfile()
     [switch]$WPA=$false)
 
 
-    if($WPA -eq $false)
-    {
-        $WpaState="WPA2PSK"
-        $EasState="AES"
+      DynamicParam {
+        $ParameterName="PHYType"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $false
+        $ParameterAttribute.Position = 4
+        $AttributeCollection.Add($ParameterAttribute)
+        $arrSet = "b", "g", "n","a", "ac"
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+
+
+        return $RuntimeParameterDictionary
     }
-    else
-    {
-        $WpaState="WPAPSK"
-        $EasState="AES"
+    begin{
+        $PHYType = $PsBoundParameters[$ParameterName]
     }
+    process{
+        if($PHYType -ne $null){
+            $PHYRestriction="<connectivity><phyType>$PHYType</phyType></connectivity>"
+            
+        }
+        else{
+            $PHYRestriction=""
+        }
+    
+
+
+
+
+
+        if($WPA -eq $false)
+        {
+            $WpaState="WPA2PSK"
+            $EasState="AES"
+        }
+        else
+        {
+            $WpaState="WPAPSK"
+            $EasState="AES"
+        }
+
 
 $XMLProfile= @"
 <?xml version="1.0"?>
@@ -887,6 +1169,7 @@ $XMLProfile= @"
      <connectionType>ESS</connectionType>
      <connectionMode>auto</connectionMode>
      <MSM>
+        $PHYRestriction
          <security>
              <authEncryption>
                  <authentication>$WpaState</authentication>
@@ -903,7 +1186,7 @@ $XMLProfile= @"
 </WLANProfile>
 "@
 
-    if($Passwd -eq "")
+        if($Passwd -eq "")
                                                                                                         {
 $XMLProfile= @"
 <?xml version="1.0"?>
@@ -917,7 +1200,8 @@ $XMLProfile= @"
 	<connectionType>ESS</connectionType>
 	<connectionMode>manual</connectionMode>
 	<MSM>
-		<security>
+        $PHYRestriction
+		<security>/
 			<authEncryption>
 				<authentication>open</authentication>
 				<encryption>none</encryption>
@@ -935,15 +1219,15 @@ $XMLProfile= @"
     }
 
 
-   $currentlocation=Get-Location
-   cd $env:TEMP
-   $TempLocation=Get-Location
-   $XMLProfile | Set-Content "$WLanName.xml"
-   Netsh WLAN add profile filename=$TempLocation\$WLanName.xml
-   remove-item "$WLanName.xml"
-   cd $currentlocation
+       $currentlocation=Get-Location
+       cd $env:TEMP
+       $TempLocation=Get-Location
+       $XMLProfile | Set-Content "$WLanName.xml"
+       Netsh WLAN add profile filename=$TempLocation\$WLanName.xml
+       remove-item "$WLanName.xml"
+       cd $currentlocation
 
-
+   }
 }
 
 function Create-W4AWifiProfile()
@@ -1258,7 +1542,8 @@ function Stay-Connected()
         $ParameterAttributeInterface.Mandatory = $false
         $ParameterAttributeInterface.Position = 2
         $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
         $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
         $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
         $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
@@ -1288,7 +1573,8 @@ function Stay-Connected()
         {
             if($SelectedInterface -eq $null)
             {
-                $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
+                #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
+                $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
             }
             $SleepCounter=0
             while($true)
@@ -1359,7 +1645,8 @@ function Get-WifiState()
         $ParameterAttributeInterface.Mandatory = $false
         $ParameterAttributeInterface.Position = 2
         $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
         $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
         $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
         $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
@@ -1393,7 +1680,8 @@ function Get-WifiState()
 
         if($SelectedInterface -eq $null)
         {
-            $SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
+            #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
+            $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
         }
         $InterfaceIP=((Get-NetIPAddress | Where-Object {$_.interfacealias -like $($SelectedInterface) -and $_.AddressFamily -eq "IPv4"}).IPv4Address).ToString()
 
@@ -1455,7 +1743,8 @@ Function Monitor-WifiState()
         $ParameterAttributeInterface.Mandatory = $false
         $ParameterAttributeInterface.Position = 2
         $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        $arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
         $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
         $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
         $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)

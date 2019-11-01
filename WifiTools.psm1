@@ -26,4 +26,9 @@ export-modulemember -function Get-WifiLog
 export-modulemember -function Monitor-WifiLog
 export-modulemember -function Export-WifiProfiles
 export-modulemember -function Import-WifiProfiles
+Export-ModuleMember -function Clear-WifiLog
+Export-ModuleMember -function Export-WifiLog
+Export-ModuleMember -function Enable-WifiProfiles
+Export-ModuleMember -function Disable-WifiProfiles
+Export-ModuleMember -function Show-WifiProfilePassword
 #endregion export module member
