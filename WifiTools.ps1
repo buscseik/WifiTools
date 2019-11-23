@@ -26,6 +26,18 @@ function Show-WifiState()
 
 .EXAMPLE
     Show-WifiState
+
+    IPv4Address    : 192.168.2.101
+    IPv6Address    : fe81::fd79:7820:cef5:fea8%9
+    SSID           : Guest WiFi
+    BSSID          : 3a:38:5d:f1:3c:d9
+    State          : connected
+    Authentication : WPA2-Personal
+    Channel        : 149
+    Signal         : 88%
+    RxRate         : 526.5
+    TxRate         : 526.5
+    StateTime      : 10/21/2019 11:16:05 PM
 #>
 
 
@@ -74,10 +86,14 @@ function Monitor-WifiState()
     Switch between monitor and log mode.
 
 .EXAMPLE
-   Monitor-WifiState 5
-   Monitor-WifiState -refreshTime 5
+Monitor-WifiState -refreshTime 5
 
-   Will dispaly and refresh wirless connection state in every 5 sec.
+21.10.2019-23:18:49> 192.168.2.101 connected  Guest WiFi  3c:28:6d:a1:1c:d0  WPA2-Personal   585     585     90%     149
+21.10.2019-23:18:55> 192.168.2.101 connected  Guest WiFi  3c:28:6d:a1:1c:d0  WPA2-Personal   702     702     91%     149
+21.10.2019-23:19:00> 192.168.2.101 connected  Guest WiFi  3c:28:6d:a1:1c:d0  WPA2-Personal   702     702     91%     149
+21.10.2019-23:19:05> 192.168.2.101 connected  Guest WiFi  3c:28:6d:a1:1c:d0  WPA2-Personal   585     585     88%     149
+
+Will dispaly and refresh wirless connection state in every 5 sec.
 
 .EXAMPLE
    Monitor-WifiState 5 -LogMode
@@ -125,6 +141,9 @@ Function Get-PublicIP()
 .EXAMPLE
     Get-PublicIP
 
+    72.197.134.201
+
+.EXAMPLE
     Get-PublicIP -ipv6
 
 #>
@@ -693,7 +712,22 @@ function Get-WifiLog()
 .EXAMPLE
    Get-WifiLog
 
+TimeCreated                     Id LevelDisplayName Message
+-----------                     -- ---------------- -------
+10/21/2019 12:08:55 AM       11005 Information      Wireless security succeeded.…
+10/21/2019 12:08:55 AM       11010 Information      Wireless security started.…
+10/20/2019 5:37:55 PM        11004 Information      Wireless security stopped.…
+10/19/2019 9:16:23 AM         8001 Information      WLAN AutoConfig service has successfully connected to a wireless network.…
+10/19/2019 9:16:23 AM        11005 Information      Wireless security succeeded.…
+10/19/2019 9:16:22 AM        11010 Information      Wireless security started.…
+.EXAMPLE
    Get-WifiLog -OnlyError
+
+TimeCreated                     Id LevelDisplayName Message
+-----------                     -- ---------------- -------
+10/8/2019 8:20:24 AM          8002 Error            WLAN AutoConfig service failed to connect to a wireless network.…
+10/8/2019 8:20:14 AM          8002 Error            WLAN AutoConfig service failed to connect to a wireless network.…
+9/30/2019 5:56:59 PM         11006 Error            Wireless security failed.…
 #>
 
 
@@ -729,6 +763,7 @@ function Monitor-WifiLog()
 .EXAMPLE
    Monitor-WifiLog
 
+.EXAMPLE
    Monitor-WifiLog -OnlyError
 #>
     [CmdletBinding()]
@@ -788,6 +823,22 @@ function List-WifiProfiles()
    You can specify a string that profile name must contain to list.
 .PARAMETER profileWildCard
    You can specify a wildcard to list profiles.
+
+.EXAMPLE
+List-WifiProfiles
+
+Profiles on interface Wi-Fi:
+
+Group policy profiles (read only)
+---------------------------------
+    <None>
+
+User profiles
+-------------
+    All User Profile     : Starbucks
+    All User Profile     : Guest WiFi
+    All User Profile     : LUX210_5G
+    All User Profile     : Hilton Honors
 
 .EXAMPLE
    List-WifiProfiles -profileName TP007
@@ -993,6 +1044,28 @@ Function Show-WifiInterface()
 
 .EXAMPLE
    Show-WifiInterface
+
+   There is 1 interface on the system:
+
+    Name                   : Wi-Fi
+    Description            : Marvell AVASTAR Wireless-AC Network Controller
+    GUID                   : 995d46c1-a787-3798-8a18-da15e9e0da69
+    Physical address       : b5:a5:2b:a7:e0:5c
+    State                  : connected
+    SSID                   : Guest WiFi
+    BSSID                  : 1c:2a:fd:a1:2c:da
+    Network type           : Infrastructure
+    Radio type             : 802.11ac
+    Authentication         : WPA2-Personal
+    Cipher                 : CCMP
+    Connection mode        : Auto Connect
+    Channel                : 149
+    Receive rate (Mbps)    : 585
+    Transmit rate (Mbps)   : 585
+    Signal                 : 94%
+    Profile                : Guest WiFi
+
+    Hosted network status  : Not available
 
 #>
     netsh wlan show interfaces
@@ -1724,6 +1797,20 @@ function Get-WifiState()
 .EXAMPLE
    Get-WifiState -InterfaceName Wi-Fi
 
+InterfaceIP    : 192.168.2.101
+State          : connected
+ESSID          : Guest WiFi
+BSSID          : 3a:31:5d:a2:1a:df
+Authentication : WPA2-Personal
+ReceiveRate    : 585
+TransmitRate   : 585
+Signal         : 97%
+CurrentChannel : 149
+LogHeader      : InterfaceIP      State           ESSID                BSSID              Authentication  RxRate  TxRate  Signal  Channel
+                 ---------------- --------------- -------------------- ------------------ --------------- ------- ------- ------- -------
+LogLine        : 192.168.2.101    connected       Guest WiFi           3a:31:5d:a2:1a:df  WPA2-Personal   585     585     97%     149
+LogCsvHeader   : InterfaceIP;State;ESSID;BSSID;Authentication;RxRate;TxRate;Signal;Channel
+logCsvLine     : 192.168.2.101;connected;guest WiFi;3a:31:5d:a2:1a:df;WPA2-Personal;585;585;97%;149
 
 #>
     [CmdletBinding()]
