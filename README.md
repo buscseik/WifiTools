@@ -34,3 +34,6 @@ Install-Module WifiTools
 * Disable-WifiProfiles
 * Enable-WifiProfiles
 * Show-WifiProfilePassword
+* Disable-NetworkInterface
+* Enable-NetworkInterface
+* Get-InterfaceIP

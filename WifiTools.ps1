@@ -35,8 +35,8 @@ function Show-WifiState()
         [WifiState]$CurrentState=[WiFiState]::new()
         $CurrentState.StateTime=get-date
         $FullStat=$(netsh wlan show interfaces)
-        $CurrentState.IPv4Address=(Get-NetIPAddress -InterfaceAlias $SelectedAdapter.Name).IPv4Address
-        $CurrentState.IPv6Address=(Get-NetIPAddress -InterfaceAlias $SelectedAdapter.Name).IPv6Address
+        $CurrentState.IPv4Address=(Get-InterfaceIP $SelectedAdapter.Name).IPv4Address
+        $CurrentState.IPv6Address=(Get-InterfaceIP $SelectedAdapter.Name).IPv6Address
         $FullStat=$FullStat.split("`n")
         foreach($nextLine in $FullStat)
         {
@@ -340,6 +340,101 @@ Function Show-WifiProfilePassword
     }
    
 }
+function Disable-NetworkInterface()
+{
+<#
+
+.DESCRIPTION
+   This function can help you to disable wifi or ethernet interface
+
+
+.PARAMETER InterfaceName
+   You can specify the exact interface name, that need to be disabled
+
+.EXAMPLE
+   Disable-NetworkInterface -InterfaceName "WiFi 3"
+
+   
+#>
+
+    [CmdletBinding()]
+    param()
+
+    DynamicParam {
+     
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 2
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $arrSetInterface=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
+        return $RuntimeParameterDictionary
+    }
+    begin{
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+    process{
+        netsh interface set interface "$SelectedInterface" disable
+      
+    }
+}
+function Enable-NetworkInterface()
+{
+<#
+
+.DESCRIPTION
+   This function can help you to enable already disabled wifi or ethernet interface
+
+
+.PARAMETER InterfaceName
+   You can specify the exact interface name, that need to be enabled
+
+.EXAMPLE
+   Enable-NetworkInterface -InterfaceName "WiFi 3"
+
+   
+#>
+
+    [CmdletBinding()]
+    param()
+
+    DynamicParam {
+     
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 2
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        #$arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $arrSetInterface=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
+        return $RuntimeParameterDictionary
+    }
+    begin{
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+    process{
+        netsh interface set interface "$SelectedInterface" enable
+      
+    }
+}
+
+
+
 function Connect-WiFi()
 {
 <#
@@ -1349,7 +1444,8 @@ Function Scan-WifiAPs()
     TP007            WPA2-Personal   CCMP       64:70:02:9a:2a:c8 60%    802.11n  11
 #>
 
-   param([string]$profileNameWildCard, [string]$BSSIDWildCard)
+    [CmdletBinding()]
+    param([string]$profileNameWildCard, [string]$BSSIDWildCard)
 
     #clear-host
     $AllAP=$(netsh wlan show networks mode=bssid)
@@ -1683,7 +1779,7 @@ function Get-WifiState()
             #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
             $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
         }
-        $InterfaceIP=((Get-NetIPAddress | Where-Object {$_.interfacealias -like $($SelectedInterface) -and $_.AddressFamily -eq "IPv4"}).IPv4Address).ToString()
+        $InterfaceIP=(Get-InterfaceIP $SelectedInterface).IPv4Address
 
         $Interface=""
         $Interface=netsh wlan show interface $SelectedInterface
@@ -1810,4 +1906,42 @@ function DateEcho($Var)
     }
 
 
+}
+
+
+function Get-InterfaceIP()
+{
+    [CmdletBinding()]
+    param()
+
+    DynamicParam {
+        $ParameterName="Interface"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 0
+        $AttributeCollection.Add($ParameterAttribute)
+        #$arrSet = (Get-NetAdapter).Name
+        $arrSet = (netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+        return $RuntimeParameterDictionary
+    }
+    begin{
+        $Interface = $PsBoundParameters[$ParameterName]
+    }
+
+
+    Process{
+        $selectedInterface=[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | where name -eq $Interface
+
+        $InterfaceAlias=$selectedInterface.Name
+     
+        $IPAddress=($selectedInterface.GetIPProperties().UnicastAddresses | Where-Object PrefixLength -eq 24 ).Address.IPAddressToString
+        $IPv6Address=($selectedInterface.GetIPProperties().UnicastAddresses | Where-Object PrefixLength -eq 64 ).Address.IPAddressToString
+        return [pscustomobject]@{InterfaceAlias=$InterfaceAlias;IPv4Address=$IPAddress;IPv6Address=$IPv6Address}
+    }
 }

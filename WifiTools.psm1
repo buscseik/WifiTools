@@ -31,4 +31,7 @@ Export-ModuleMember -function Export-WifiLog
 Export-ModuleMember -function Enable-WifiProfiles
 Export-ModuleMember -function Disable-WifiProfiles
 Export-ModuleMember -function Show-WifiProfilePassword
+Export-ModuleMember -function Disable-NetworkInterface
+Export-ModuleMember -function Enable-NetworkInterface
+Export-ModuleMember -function Get-InterfaceIP
 #endregion export module member
