@@ -380,25 +380,24 @@ function Disable-NetworkInterface()
     param()
 
     DynamicParam {
-     
-        $ParameterNameInterface="InterfaceName"
-        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttributeInterface.Mandatory = $false
-        $ParameterAttributeInterface.Position = 2
-        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
-        #$arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
-        $arrSetInterface=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
-        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
-        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
-        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
-        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
-
+        $ParameterName="InterfaceName"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 0
+        $AttributeCollection.Add($ParameterAttribute)
+        #$arrSet = (Get-NetAdapter).Name
+        #$arrSet = (netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $arrSet=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
         return $RuntimeParameterDictionary
     }
     begin{
-        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+        $SelectedInterface = $PsBoundParameters[$ParameterName]
     }
     process{
         netsh interface set interface "$SelectedInterface" disable
@@ -424,27 +423,25 @@ function Enable-NetworkInterface()
 
     [CmdletBinding()]
     param()
-
     DynamicParam {
-     
-        $ParameterNameInterface="InterfaceName"
-        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
-        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
-        $ParameterAttributeInterface.Mandatory = $false
-        $ParameterAttributeInterface.Position = 2
-        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
-        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
-        #$arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
-        $arrSetInterface=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
-        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
-        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
-        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
-        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
-
+        $ParameterName="InterfaceName"
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $true
+        $ParameterAttribute.Position = 0
+        $AttributeCollection.Add($ParameterAttribute)
+        #$arrSet = (Get-NetAdapter).Name
+        #$arrSet = (netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $arrSet=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
         return $RuntimeParameterDictionary
     }
     begin{
-        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+        $SelectedInterface = $PsBoundParameters[$ParameterName]
     }
     process{
         netsh interface set interface "$SelectedInterface" enable
