@@ -533,7 +533,7 @@ function Connect-WiFi()
         }
         else
         {
-            Write-host "Network profile does not exists."
+            Write-output "Network profile does not exists."
         }
     }
 }
@@ -790,7 +790,7 @@ function Monitor-WifiLog()
                 if($nextevent.TimeCreated -ne $lastevent.TimeCreated)
                 {
                     $shortmessage=$nextevent.Message.split("`n")[0]
-                    write-host ('{0} {1} {2} {3}' -f ($nextevent.TimeCreated.ToString()).padright(23, ' '), $nextevent.Id.ToString().padright(10, ' '), $nextevent.LevelDisplayName.ToString().padright(15, ' '), $shortmessage)
+                    write-output ('{0} {1} {2} {3}' -f ($nextevent.TimeCreated.ToString()).padright(23, ' '), $nextevent.Id.ToString().padright(10, ' '), $nextevent.LevelDisplayName.ToString().padright(15, ' '), $shortmessage)
 
                 }
             }
@@ -858,7 +858,7 @@ User profiles
         {
             foreach($nextLine in $AllProfiles)
             {
-                if($nextLine -like "* : *" -and $nextLine.split(":")[1] -eq " $profileName") {Write-Host $nextLine}
+                if($nextLine -like "* : *" -and $nextLine.split(":")[1] -eq " $profileName") {Write-output $nextLine}
 
             }
         }
@@ -870,7 +870,7 @@ User profiles
                 {
                     if($nextLine.split(":")[1] -like "*$profileContain*")
                     {
-                        Write-Host $nextLine
+                        Write-output $nextLine
                     }
                 }
             }
@@ -883,7 +883,7 @@ User profiles
                 {
                     if($nextLine.split(":")[1] -match $profileRegex)
                     {
-                        Write-Host $nextLine
+                        Write-output $nextLine
                     }
                 }
             }
@@ -896,14 +896,14 @@ User profiles
                 {
                     if($nextLine.split(":")[1] -like "?$profileWildCard")
                     {
-                        Write-Host $nextLine
+                        Write-output $nextLine
                     }
                 }
             }
         }
         else
         {
-            Write-Host ($AllProfiles | Out-String)
+            Write-output ($AllProfiles | Out-String)
         }
 
 
@@ -1128,7 +1128,7 @@ Function Show-IPConfig
         {
             if($ignoreWhiteSpace -eq $true)
             {
-                Write-Host $nextline
+                Write-output $nextline
                 $ignoreWhiteSpace=$false
             }
             else
@@ -1137,7 +1137,7 @@ Function Show-IPConfig
                 {
                     if($nextline -match "^.*$($Interface):$")
                     {
-                        Write-Host $nextline
+                        Write-output $nextline
                         $needToPrintNextLine=$true
                         $ignoreWhiteSpace=$true
                     }
@@ -1153,7 +1153,7 @@ Function Show-IPConfig
                 {
                     if($needToPrintNextLine)
                     {
-                        Write-Host $nextline
+                        Write-output $nextline
                     }
                 }
             }
@@ -1290,11 +1290,25 @@ function Create-WifiProfile()
         $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
         $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
 
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 3
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
 
         return $RuntimeParameterDictionary
     }
     begin{
         $PHYType = $PsBoundParameters[$ParameterName]
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
     }
     process{
         if($PHYType -ne $null){
@@ -1388,7 +1402,12 @@ $XMLProfile= @"
        cd $env:TEMP
        $TempLocation=Get-Location
        $XMLProfile | Set-Content "$WLanName.xml"
-       Netsh WLAN add profile filename=$TempLocation\$WLanName.xml
+       if($SelectedInterface -eq $null){
+            Netsh WLAN add profile filename=$TempLocation\$WLanName.xml
+       }
+       else{
+            Netsh WLAN add profile filename=$TempLocation\$WLanName.xml interface=$SelectedInterface
+       }
        remove-item "$WLanName.xml"
        cd $currentlocation
 
@@ -1410,11 +1429,38 @@ function Create-W4AWifiProfile()
    Create-W4AProfile "Custom Wi-Free"
 
 #>
-    param($NetworkName)
-    if($NetworkName -eq $null)
-    {
-        $NetworkName = "Horizon Wi-Free"
+    [CmdletBinding()]
+    param([string]$NetworkName)
+    DynamicParam {
+     
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 3
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
+
+        return $RuntimeParameterDictionary
     }
+    begin{
+        $PHYType = $PsBoundParameters[$ParameterName]
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+    process{
+        if($NetworkName -eq $null)
+        {
+            $NetworkName = "Horizon Wi-Free"
+        }
+
 $XMLProfile= @"
 <?xml version="1.0"?>
 <WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
@@ -1452,14 +1498,21 @@ $XMLProfile= @"
 
 "@
 
-   $currentlocation=Get-Location
-   cd $env:TEMP
-   $TempLocation=Get-Location
-   $XMLProfile | Set-Content "$NetworkName.xml"
-   Netsh WLAN add profile filename=$TempLocation\$NetworkName.xml
-   remove-item "$NetworkName.xml"
-   cd $currentlocation
+        $currentlocation=Get-Location
+        cd $env:TEMP
+        $TempLocation=Get-Location
+        $XMLProfile | Set-Content "$NetworkName.xml"
 
+        if($SelectedInterface -eq $null){
+            Netsh WLAN add profile filename=$TempLocation\$NetworkName.xml
+        }
+        else{
+            Netsh WLAN add profile filename=$TempLocation\$NetworkName.xml interface=$SelectedInterface
+        }
+        remove-item "$NetworkName.xml"
+        cd $currentlocation
+    }
+        
 }
 
 
@@ -1519,7 +1572,7 @@ Function Scan-WifiAPs()
 
     #clear-host
     $AllAP=$(netsh wlan show networks mode=bssid)
-    #Write-Host $($AllAP | Out-String)
+    #Write-output $($AllAP | Out-String)
     $ListOfAPs=@()
     $ProcessNextLine=$false
     $lastLineisChannel=$false
@@ -1774,7 +1827,7 @@ function Stay-Connected()
         }
         else
         {
-            Write-host "Network profile does not exists."
+            Write-output "Network profile does not exists."
         }
     }
 }
