@@ -37,3 +37,4 @@ Install-Module WifiTools
 * Disable-NetworkInterface
 * Enable-NetworkInterface
 * Get-InterfaceIP
+* Get-WifiInterfaces

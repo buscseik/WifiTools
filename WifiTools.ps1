@@ -789,7 +789,7 @@ function Monitor-WifiLog()
             {
                 if($nextevent.TimeCreated -ne $lastevent.TimeCreated)
                 {
-                    $shortmessage=$nextevent.Message.split("`n")[0]
+                    $shortmessage=$nextevent.Message.split("`n")[0].replace("`r","")
                     write-output ('{0} {1} {2} {3}' -f ($nextevent.TimeCreated.ToString()).padright(23, ' '), $nextevent.Id.ToString().padright(10, ' '), $nextevent.LevelDisplayName.ToString().padright(15, ' '), $shortmessage)
 
                 }
@@ -1914,23 +1914,23 @@ logCsvLine     : 192.168.2.101;connected;guest WiFi;3a:31:5d:a2:1a:df;WPA2-Perso
         if($SelectedInterface -eq $null)
         {
             #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
-            $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
+            #$SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
+            $SelectedInterface=(Get-WifiInterfaces | select -First 1).Name
         }
         $InterfaceIP=(Get-InterfaceIP $SelectedInterface).IPv4Address
 
         $Interface=""
-        $Interface=netsh wlan show interface $SelectedInterface
+        $Interface=Get-WifiInterfaces -InterfaceName $SelectedInterface
 
-        $State=$Interface[7].Split(":")[1].Trim()
-        if( "$($State)" -eq "connected" )
+        if( $Interface.State -eq "connected" )
         {
-            $ESSID=$Interface[8].Split(":")[1].Trim()
-            $BSSID=$Interface[9].Substring($Interface[9].IndexOf(" : ")+3).Trim()
-            $Authentication=$Interface[12].Split(":")[1].Trim()
-            $ReceiveRate=$Interface[16].Split(":")[1].Trim()
-            $TransmitRate=$Interface[17].Split(":")[1].Trim()
-            $Signal=$Interface[18].Split(":")[1].Trim()
-            $CurrentChannel=$Interface[15].Split(":")[1].Trim()
+            $ESSID=$Interface.SSID
+            $BSSID=$Interface.BSID
+            $Authentication=$Interface.Authentication
+            $ReceiveRate=$Interface."Receive rate (Mbps)"
+            $TransmitRate=$Interface."Transmit rate (Mbps)"
+            $Signal=$Interface.Signal
+            $CurrentChannel=$Interface.Channel
         }
         $LogHeader="{0,-16} {1,-15} {2,-20} {3,-18} {4,-15} {5,-7} {6,-7} {7,-7} {8,-7}" -f "InterfaceIP", "State", "ESSID", "BSSID", "Authentication", "RxRate","TxRate", "Signal", "Channel"
         $LogHeader+="`n"+"{0} {1} {2} {3} {4} {5} {6} {7} {8}" -f "".PadLeft(16,"-"), "".PadLeft(15,"-"), "".PadLeft(20,"-"), "".PadLeft(18,"-"), "".PadLeft(15,"-"), "".PadLeft(7,"-"), "".PadLeft(7,"-"), "".PadLeft(7,"-"), "".PadLeft(7,"-")
@@ -1941,6 +1941,103 @@ logCsvLine     : 192.168.2.101;connected;guest WiFi;3a:31:5d:a2:1a:df;WPA2-Perso
         return [pscustomobject]@{InterfaceIP=$InterfaceIP;State=$State;ESSID=$ESSID;BSSID=$BSSID;Authentication=$Authentication;ReceiveRate=$ReceiveRate;TransmitRate=$TransmitRate;Signal=$Signal;CurrentChannel=$CurrentChannel;`
         LogHeader=$LogHeader;LogLine=$LogLine;LogCsvHeader=$LogCsvHeader;logCsvLine=$logCsvLine;}
 
+    }
+}
+
+
+function Get-WifiInterfaces()
+{
+<#
+.DESCRIPTION
+   This function will return with a list of objects that contain the information for each wifi interfaces.
+
+
+.PARAMETER InterfaceName
+   You can specify the exact wifi interface name, where you want to connect.
+
+
+.EXAMPLE
+   Get-WifiInterfaces -InterfaceName WiFi
+
+
+Description                                  Transmit rate (Mbps) Name   Receive rate (Mbps) Radio type SSID       Channel GUID                                 BSSID
+-----------                                  -------------------- ----   ------------------- ---------- ----       ------- ----                                 -----
+Realtek 8812AU Wireless LAN 802.11ac USB NIC 780                  WiFi 2 780                 802.11ac   CPE_IPV4-5 120     adcb6b47-260d-4610-9520-3af534588f8d 90   
+
+#>
+
+    [CmdletBinding()]
+    param()
+
+    DynamicParam {
+
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+
+
+
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 2
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
+
+
+
+        return $RuntimeParameterDictionary
+    }
+    begin{
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+    process
+    {
+
+        $AllInterfaces= netsh wlan show interfaces|out-string
+        $AllInterfaces=[regex]::Matches($AllInterfaces, "(?msi)(\s{4}Name.{600,900}?\r\n\r\n)")
+        $ListOfInterfaceInfo=@()
+
+        foreach($nextinterface in $AllInterfaces)
+        {
+    
+            $newIf=@{}
+            $ifinfo=$nextinterface |  &{process{($_.Value.split([Environment]::NewLine).trim())}}
+    
+            foreach($nextline in $ifinfo)
+            {
+                if($nextline -Match ':')
+                {
+            
+                    $keyvaluepair=$nextline.split(':')
+                    if($keyvaluepair.Count -eq 2)
+                    {
+                        $newIf.Add($keyvaluepair[0].trim(), $keyvaluepair[1].trim())
+                    }
+                    else
+                    {
+                        $newIf.Add($keyvaluepair[0].trim(), ($keyvaluepair[1..$keyvaluepair.Length] | Join-String -Delimiter ':').trim())
+                        
+                    }
+            
+                }
+            }
+            $ListOfInterfaceInfo+=[pscustomobject]$newIf
+        }
+        if($SelectedInterface -eq $null)
+        {
+            return $ListOfInterfaceInfo 
+        }
+        else
+        {
+            return $ListOfInterfaceInfo | Where-Object name -EQ $SelectedInterface
+        }
+
+        
     }
 }
 
@@ -2013,6 +2110,20 @@ Function Monitor-WifiState()
 
     }
 }
+
+function Join-String
+{
+    [CmdletBinding()]
+    param
+    (
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true)][string]$String,
+        [Parameter(Position = 1)][string]$Delimiter = ""
+    )
+    BEGIN {$items = @() }
+    PROCESS { $items += $String }
+    END { return ($items -join $Delimiter) }
+}
+
 function DateEcho($Var)
 {
 <#
