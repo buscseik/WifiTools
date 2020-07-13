@@ -1564,6 +1564,43 @@ class WifiAP
 
 
 }
+
+function Get-WifiAPs {
+    
+    
+    $AllAP=$(netsh wlan show networks mode=bssid)
+    
+    # Add extra empty line to help regex to recognize last wifi network
+    $AllAP+=""
+
+    $APList=$AllAP -join "`r`n"  | Select-String "(?smi)^SSID\s[0-9]{1,4}\s:\s(.*?)Other.*?\r\n\r\n" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
+    $ListOfAPs=@()
+    foreach($nextAP in $APList){
+        $Name=((($nextAP -split "\r\n")[0] -split ":")[1]).trim()
+        $Authentication=((($nextAP -split "\r\n")[2] -split ":")[1]).trim()
+        $Encryption=((($nextAP -split "\r\n")[3] -split ":")[1]).trim()
+        
+        $bssidlist = $nextAP | Select-String "(?smi)^    BSSID\s[0-9]{1,4}(.*?)Other.*?$" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
+        foreach($nextbssid in $bssidlist){
+            $BSSID=(((($nextbssid -split "\r\n")[0] -split ":") | Select-Object -skip 1 ) -join ":").trim()
+            $Signal=((($nextbssid -split "\r\n")[1] -split ":")[1]).trim()
+            $Radio=((($nextbssid -split "\r\n")[2] -split ":")[1]).trim()
+            $Channel=((($nextbssid -split "\r\n")[3] -split ":")[1]).trim()    
+
+            $ListOfAPs+=([pscustomobject]@{
+                Name=$Name; 
+                Authentication=$Authentication; 
+                Encryption=$Encryption; 
+                BSSID=$BSSID; 
+                Signal=$Signal; 
+                Radio=$Radio; 
+                Channel=$Channel 
+            })
+        }
+    }
+    return $ListOfAPs
+
+}
 Function Scan-WifiAPs()
 {
 
@@ -1608,48 +1645,21 @@ Function Scan-WifiAPs()
     [CmdletBinding()]
     param([string]$profileNameWildCard, [string]$BSSIDWildCard, [int]$ScanTime=3)
 
+    $beforeScanAPs=Get-WifiAPs
+
     # Force interfaces to scan for new networks
     $managedwifilib=[Reflection.Assembly]::LoadFile("$PSScriptRoot\ManagedWifi.dll")
     $wificlient = New-Object NativeWifi.WlanClient
     foreach($nextif in $wificlient.Interfaces){
         $nextif.scan()
     }
+
     Start-Sleep -Seconds $ScanTime
-
-    #clear-host
-    $AllAP=$(netsh wlan show networks mode=bssid)
-    #Write-output $($AllAP | Out-String)
-
-    #$APList=$AllAP -join "`r`n"  | Select-String "(?smi)^SSID\s[0-9]{1,4}\s:\s(.*?)Other.*?$" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
-    $APList=$AllAP -join "`r`n"  | Select-String "(?smi)^SSID\s[0-9]{1,4}\s:\s(.*?)Other.*?\r\n\r\n" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
-    $ListOfAPs2=@()
-    foreach($nextAP in $APList){
-        $Name=((($nextAP -split "\r\n")[0] -split ":")[1]).trim()
-        $Authentication=((($nextAP -split "\r\n")[2] -split ":")[1]).trim()
-        $Encryption=((($nextAP -split "\r\n")[3] -split ":")[1]).trim()
-        
-        $bssidlist = $nextAP | Select-String "(?smi)^    BSSID\s[0-9]{1,4}(.*?)Other.*?$" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
-        foreach($nextbssid in $bssidlist){
-            $BSSID=(((($nextbssid -split "\r\n")[0] -split ":") | Select-Object -skip 1 ) -join ":").trim()
-            $Signal=((($nextbssid -split "\r\n")[1] -split ":")[1]).trim()
-            $Radio=((($nextbssid -split "\r\n")[2] -split ":")[1]).trim()
-            $Channel=((($nextbssid -split "\r\n")[3] -split ":")[1]).trim()    
-
-            $ListOfAPs2+=([pscustomobject]@{
-                Name=$Name; 
-                Authentication=$Authentication; 
-                Encryption=$Encryption; 
-                BSSID=$BSSID; 
-                Signal=$Signal; 
-                Radio=$Radio; 
-                Channel=$Channel 
-            })
-        }
-    } 
+    $AfterScanAPs=Get-WifiAPs
     
-    # remove duplicates if there are more than one wifi interface
+    # remove duplicates if there are more than one wifi interface and join the two list
     $ListOfAPsfinal=@()
-    foreach($nextAP in $ListOfAPs2){
+    foreach($nextAP in $beforeScanAPs){
         $apinlist=$false
         foreach($nextsavedAP in $ListOfAPsfinal){
             if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
@@ -1659,8 +1669,19 @@ Function Scan-WifiAPs()
         if(!$apinlist){
             $ListOfAPsfinal+=$nextAP
         }
-
     }
+    foreach($nextAP in $AfterScanAPs){
+        $apinlist=$false
+        foreach($nextsavedAP in $ListOfAPsfinal){
+            if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
+                $apinlist=$true
+            }
+        }
+        if(!$apinlist){
+            $ListOfAPsfinal+=$nextAP
+        }
+    }
+
     
     # filter to selected
     if($profileNameWildCard -ne "")
