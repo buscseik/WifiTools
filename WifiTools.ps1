@@ -124,7 +124,7 @@ Will dispaly and refresh wirless connection state in every 5 sec.
              }
 
 
-            sleep $refreshTime
+            Start-Sleep $refreshTime
         }
 
 }
@@ -200,7 +200,7 @@ function Export-WifiProfiles
         $ProfileName = $PsBoundParameters[$ParameterName]
     }
     process{
-        if($ProfileName -ne $null){
+        if($null-ne $ProfileName){
             netsh wlan export profile name="$ProfileName" folder=$((get-location).path)
         }
         else{
@@ -237,7 +237,7 @@ function Import-WifiProfiles
         $ParameterAttribute.Mandatory = $false
         $ParameterAttribute.Position = 1
         $AttributeCollection.Add($ParameterAttribute)
-        $arrSet = (ls *.xml).Name
+        $arrSet = (Get-ChildItem *.xml).Name
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
         $AttributeCollection.Add($ValidateSetAttribute)
         $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
@@ -251,12 +251,12 @@ function Import-WifiProfiles
         $ProfileNameXml = $PsBoundParameters[$ParameterName]
     }
     process{
-        if($ProfileNameXml -ne $null){
-            ls $ProfileNameXml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
+        if( $null -ne $ProfileNameXml ){
+            Get-ChildItem $ProfileNameXml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
         }
         else{
             
-            ls *.xml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
+            Get-ChildItem *.xml | &{process{netsh wlan add profile filename="$($_.fullname)" user=all}}
         }
     }
 }
@@ -274,14 +274,14 @@ function Disable-WifiProfiles
 #>
 
    $currentlocation=Get-Location
-   cd $env:TEMP
+   Set-Location $env:TEMP
    mkdir DisabledWifiProfiles  -ErrorAction Ignore
-   cd DisabledWifiProfiles
+   Set-Location DisabledWifiProfiles
 
    Export-WifiProfiles
    Delete-WifiProfiles
       
-   cd $currentlocation
+   Set-Location $currentlocation
 }
 
 function Enable-WifiProfiles
@@ -297,13 +297,13 @@ function Enable-WifiProfiles
 #>
 
    $currentlocation=Get-Location
-   cd $env:TEMP
-   cd DisabledWifiProfiles  
+   Set-Location $env:TEMP
+   Set-Location DisabledWifiProfiles  
 
    Import-WifiProfiles
-   rm *
+   Remove-Item *
     
-   cd $currentlocation
+   Set-Location $currentlocation
 }
 
 Function Show-WifiProfilePassword
@@ -345,16 +345,16 @@ Function Show-WifiProfilePassword
     }
     process{
         $currentlocation=Get-Location
-        cd $env:TEMP
+        Set-Location $env:TEMP
         mkdir TempWifiProfiles -ErrorAction Ignore
-        cd TempWifiProfiles
+        Set-Location TempWifiProfiles
     
         netsh wlan export profile name="$ProfileName" folder=$((get-location).path) key=clear >$null 2>&1
-        [XML]$WifiProfileXmlDoc = (ls *$ProfileName* | Get-Content)
+        [XML]$WifiProfileXmlDoc = (Get-ChildItem *$ProfileName* | Get-Content)
         $ssidPwd=$WifiProfileXmlDoc.WLANProfile.MSM.security.sharedKey.keyMaterial
 
-        rm *$ProfileName*
-        cd $currentlocation
+        Remove-Item *$ProfileName*
+        Set-Location $currentlocation
         return $ssidPwd
     }
    
@@ -524,7 +524,7 @@ function Connect-WiFi()
         }
         if($IsProfileExist)
         {
-            if($SelectedInterface -eq $null)
+            if($null -eq $SelectedInterface)
             {
                 #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
                 $SelectedInterface=netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1 | & {process{return $_.Name}}
@@ -736,7 +736,7 @@ TimeCreated                     Id LevelDisplayName Message
 
     if($OnlyError)
     {
-        Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | where LevelDisplayName -EQ Error
+        Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | Where-Object LevelDisplayName -EQ Error
     }
     else
     {
@@ -768,22 +768,22 @@ function Monitor-WifiLog()
         [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false
 
     )
-    $lastevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 1
+    $lastevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | Select-Object -first 1
 
     #for($i=0; $i -lt 3600;$i++)
     while($true)
     {
-        $newevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 1
+        $newevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | Select-Object -first 1
 
         if ($lastevent.TimeCreated -ne $newevent.TimeCreated)
         {
             if($OnlyError)
             {
-                $newevents=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 10 | where LevelDisplayName -eq "Error"|where TimeCreated -gt $lastevent.timecreated
+                $newevents=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | Select-Object -first 10 | Where-Object LevelDisplayName -eq "Error"|Where-Object TimeCreated -gt $lastevent.timecreated
             }
             else
             {
-                $newevents=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | select -first 10 | where TimeCreated -gt $lastevent.timecreated
+                $newevents=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | Select-Object -first 10 | Where-Object TimeCreated -gt $lastevent.timecreated
             }
             foreach ($nextevent in $newevents)
             {
@@ -797,7 +797,7 @@ function Monitor-WifiLog()
             $lastevent=$newevent[0]
         }
 
-       sleep 1
+       Start-Sleep 1
 
     }
 }
@@ -854,7 +854,7 @@ User profiles
 
     $AllProfiles=$(netsh wlan show profiles)
 
-        if(-not ($profileName -eq "" -or $profileName -eq $null))
+        if(-not ($profileName -eq "" -or $null -eq $profileName))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -862,7 +862,7 @@ User profiles
 
             }
         }
-        elseif(-not ($profileContain -eq "" -or $profileContain -eq $null))
+        elseif(-not ($profileContain -eq "" -or $null -eq $profileContain))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -875,7 +875,7 @@ User profiles
                 }
             }
         }
-        elseif(-not($profileRegex -eq "" -or $profileRegex -eq $null))
+        elseif(-not($profileRegex -eq "" -or $null -eq $profileRegex))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -888,7 +888,7 @@ User profiles
                 }
             }
         }
-        elseif(-not($profileWildCard -eq "" -or $profileWildCard -eq $null))
+        elseif(-not($profileWildCard -eq "" -or $null -eq $profileWildCard))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -964,7 +964,7 @@ function Delete-WifiProfiles()
     process{
         $AllProfiles=$(netsh wlan show profiles)
 
-        if(-not ($profileName -eq "" -or $profileName -eq $null))
+        if(-not ($profileName -eq "" -or $null -eq $profileName))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -975,7 +975,7 @@ function Delete-WifiProfiles()
                 }
             }
         }
-        elseif(-not ($profileContain -eq "" -or $profileContain -eq $null))
+        elseif(-not ($profileContain -eq "" -or $null -eq $profileContain))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -989,7 +989,7 @@ function Delete-WifiProfiles()
                 }
             }
         }
-        elseif(-not($profileRegex -eq "" -or $profileRegex -eq $null))
+        elseif(-not($profileRegex -eq "" -or $null -eq $profileRegex))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -1003,7 +1003,7 @@ function Delete-WifiProfiles()
                 }
             }
         }
-        elseif(-not($profileWildCard -eq "" -or $profileWildCard -eq $null))
+        elseif(-not($profileWildCard -eq "" -or $null -eq $profileWildCard))
         {
             foreach($nextLine in $AllProfiles)
             {
@@ -1174,7 +1174,7 @@ function Release-Renew-IP()
 
 #>
     ipconfig /release
-    sleep 5
+    Start-Sleep 5
     ipconfig /renew
 }
 
@@ -1224,7 +1224,7 @@ function Disconnect-Wifi()
     }
 
     process{
-        if($SelectedInterface -eq $null)
+        if($null -eq $SelectedInterface)
         {
             #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}  |Select-Object -First 1 | & {process{return $_.Name}}
             $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
@@ -1311,7 +1311,7 @@ function Create-WifiProfile()
         $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
     }
     process{
-        if($PHYType -ne $null){
+        if($null -ne $PHYType){
             $PHYRestriction="<connectivity><phyType>$PHYType</phyType></connectivity>"
             
         }
@@ -1399,17 +1399,17 @@ $XMLProfile= @"
 
 
        $currentlocation=Get-Location
-       cd $env:TEMP
+       Set-Location $env:TEMP
        $TempLocation=Get-Location
        $XMLProfile | Set-Content "$WLanName.xml"
-       if($SelectedInterface -eq $null){
+       if($null -eq $SelectedInterface){
             Netsh WLAN add profile filename=$TempLocation\$WLanName.xml
        }
        else{
             Netsh WLAN add profile filename=$TempLocation\$WLanName.xml interface=$SelectedInterface
        }
        remove-item "$WLanName.xml"
-       cd $currentlocation
+       Set-Location $currentlocation
 
    }
 }
@@ -1456,7 +1456,7 @@ function Create-W4AWifiProfile()
         $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
     }
     process{
-        if($NetworkName -eq $null)
+        if($null -eq $NetworkName)
         {
             $NetworkName = "Horizon Wi-Free"
         }
@@ -1535,18 +1535,18 @@ $XMLProfile= @"
 "@
 
         $currentlocation=Get-Location
-        cd $env:TEMP
+        Set-Location $env:TEMP
         $TempLocation=Get-Location
         $XMLProfile | Set-Content "$NetworkName.xml"
 
-        if($SelectedInterface -eq $null){
+        if($null -eq $SelectedInterface){
             Netsh WLAN add profile filename=$TempLocation\$NetworkName.xml
         }
         else{
             Netsh WLAN add profile filename=$TempLocation\$NetworkName.xml interface=$SelectedInterface
         }
         remove-item "$NetworkName.xml"
-        cd $currentlocation
+        Set-Location $currentlocation
     }
         
 }
@@ -1576,6 +1576,8 @@ Function Scan-WifiAPs()
    Specifies wildcard filter for SSID
 .PARAMETER BSSIDWildCard
    Specifies wildcard filter for BSSID
+.PARAMETER ScanTime
+    Specifies how long will wait for scan. Default value is 1 sec.
 
 .EXAMPLE
    Scan-WifiAPs -profileNameWildCard TP007
@@ -1604,82 +1606,72 @@ Function Scan-WifiAPs()
 #>
 
     [CmdletBinding()]
-    param([string]$profileNameWildCard, [string]$BSSIDWildCard)
+    param([string]$profileNameWildCard, [string]$BSSIDWildCard, [int]$ScanTime=3)
+
+    # Force interfaces to scan for new networks
+    $managedwifilib=[Reflection.Assembly]::LoadFile("$PSScriptRoot\ManagedWifi.dll")
+    $wificlient = New-Object NativeWifi.WlanClient
+    foreach($nextif in $wificlient.Interfaces){
+        $nextif.scan()
+    }
+    Start-Sleep -Seconds $ScanTime
 
     #clear-host
     $AllAP=$(netsh wlan show networks mode=bssid)
     #Write-output $($AllAP | Out-String)
-    $ListOfAPs=@()
-    $ProcessNextLine=$false
-    $lastLineisChannel=$false
-    foreach($nextline in $AllAP)
-    {
-        if($nextline -match "^SSID\s[0-9]{1,4}\s:\s(.*)")
-        {
-            $ProcessNextLine=$true
-            $Name=[regex]::match($nextline,"^SSID\s[0-9]{1,4}\s:\s(.*)").captures.groups[1].value
 
+    #$APList=$AllAP -join "`r`n"  | Select-String "(?smi)^SSID\s[0-9]{1,4}\s:\s(.*?)Other.*?$" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
+    $APList=$AllAP -join "`r`n"  | Select-String "(?smi)^SSID\s[0-9]{1,4}\s:\s(.*?)Other.*?\r\n\r\n" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
+    $ListOfAPs2=@()
+    foreach($nextAP in $APList){
+        $Name=((($nextAP -split "\r\n")[0] -split ":")[1]).trim()
+        $Authentication=((($nextAP -split "\r\n")[2] -split ":")[1]).trim()
+        $Encryption=((($nextAP -split "\r\n")[3] -split ":")[1]).trim()
+        
+        $bssidlist = $nextAP | Select-String "(?smi)^    BSSID\s[0-9]{1,4}(.*?)Other.*?$" -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Value}
+        foreach($nextbssid in $bssidlist){
+            $BSSID=(((($nextbssid -split "\r\n")[0] -split ":") | Select-Object -skip 1 ) -join ":").trim()
+            $Signal=((($nextbssid -split "\r\n")[1] -split ":")[1]).trim()
+            $Radio=((($nextbssid -split "\r\n")[2] -split ":")[1]).trim()
+            $Channel=((($nextbssid -split "\r\n")[3] -split ":")[1]).trim()    
+
+            $ListOfAPs2+=([pscustomobject]@{
+                Name=$Name; 
+                Authentication=$Authentication; 
+                Encryption=$Encryption; 
+                BSSID=$BSSID; 
+                Signal=$Signal; 
+                Radio=$Radio; 
+                Channel=$Channel 
+            })
         }
-        else
-        {
-            if($ProcessNextLine -eq $true)
-            {
-                if($nextline -eq "")
-                {
-                    $ProcessNextLine=$false
-                    [WifiAP]$NewAP = [WifiAP]::new()
-                    $NewAP.Name=$Name
-                    $NewAP.Authentication=$Authentication
-                    $NewAP.BSSID=$BSSID
-                    $NewAP.Channel=$Channel
-                    $NewAP.Encryption=$Encryption
-                    $NewAP.Signal=$Signal
-                    $NewAP.Radio=$Radio
-                    $ListOfAPs+=$NewAP
-                    $lastLineisChannel=$false
-                    #$ListOfAPs+=(@{Name=$Name; Authentication=$Authentication; Encryption=$Encryption; BSSID=$BSSID; Signal=$Signal; Radio=$Radio; Channel=$Channel })
-                }
-                else
-                {
-
-                    if($nextline -match "^\s{4}Authentication\s{1,24}\s:\s([a-zA-Z0-9-]*)"){$Authentication=$Matches[1]}
-                    if($nextline -match "^\s{4}Encryption\s{1,24}\s:\s([a-zA-Z0-9-]*)"){ $Encryption=$Matches[1]}
-                    if($nextline -match "^\s{4}BSSID\s[0-9]{1,5}\s{1,24}\s:\s([0-9a-f:]*)")
-                    {
-                        if($lastLineisChannel -eq $true)
-                        {
-                            [WifiAP]$NewAP = [WifiAP]::new()
-                            $NewAP.Name=$Name
-                            $NewAP.Authentication=$Authentication
-                            $NewAP.BSSID=$BSSID
-                            $NewAP.Channel=$Channel
-                            $NewAP.Encryption=$Encryption
-                            $NewAP.Signal=$Signal
-                            $NewAP.Radio=$Radio
-                            $ListOfAPs+=$NewAP
-                            $lastLineisChannel=$false
-                        }
-                        $BSSID=$Matches[1]
-                    }
-                    if($nextline -match "^\s{9}Signal\s{1,24}\s:\s([0-9%]*)"){ $Signal=$Matches[1]}
-                    if($nextline -match "^\s{9}Radio\stype\s{1,24}\s:\s([0-9a-z\.]*)"){ $Radio=$Matches[1]}
-                    if($nextline -match "^\s{9}Channel\s{1,24}\s:\s([0-9]*)"){ $Channel=$Matches[1]; $lastLineisChannel=$true}
-
-
-
-                }
+    } 
+    
+    # remove duplicates if there are more than one wifi interface
+    $ListOfAPsfinal=@()
+    foreach($nextAP in $ListOfAPs2){
+        $apinlist=$false
+        foreach($nextsavedAP in $ListOfAPsfinal){
+            if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
+                $apinlist=$true
             }
         }
+        if(!$apinlist){
+            $ListOfAPsfinal+=$nextAP
+        }
+
     }
+    
+    # filter to selected
     if($profileNameWildCard -ne "")
     {
-        $ListOfAPs = $ListOfAPs | Where-Object {$_.Name -like $profileNameWildCard}
+        $ListOfAPsfinal = $ListOfAPsfinal | Where-Object {$_.Name -like $profileNameWildCard}
     }
     if($BSSIDWildCard -ne "")
     {
-        $ListOfAPs =$ListOfAPs | Where-Object {$_.BSSID -like $BSSIDWildCard}
+        $ListOfAPsfinal =$ListOfAPsfinal | Where-Object {$_.BSSID -like $BSSIDWildCard}
     }
-    return $ListOfAPs
+    return $ListOfAPsfinal
     #process all AP to an object, and after filter them
 }
 
@@ -1732,8 +1724,8 @@ KriszLaptop                     127.0.0.1                         1706      7388
 
 #>
 Get-NetTCPConnection -State Established |
-foreach {
-        if($lastItem -eq $null)
+ForEach-Object {
+        if($null -eq $lastItem)
         {
             $lastItem=""
         }
@@ -1743,7 +1735,7 @@ foreach {
             $lastItem=$_.RemoteAddress
         }
 
-        $Process=Get-Process | where Id -eq $_.OwningProcess
+        $Process=Get-Process | Where-Object Id -eq $_.OwningProcess
 
         [pscustomobject]@{RemoteDNS=$Name.Server; RemoteIP=$_.RemoteAddress;RemotePort=$_.RemotePort;ProcessID=$_.OwningProcess;ProcessName=$Process.ProcessName;Company=$Process.Company; LocalIP=$_.LocalAddress; LocalPort=$_.LocalPort}
 
@@ -1826,7 +1818,7 @@ function Stay-Connected()
         }
         if($IsProfileExist)
         {
-            if($SelectedInterface -eq $null)
+            if($null -eq $SelectedInterface)
             {
                 #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
                 $SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
@@ -1834,7 +1826,7 @@ function Stay-Connected()
             $SleepCounter=0
             while($true)
             {
-                sleep 60
+                Start-Sleep 60
                 $Status=Show-WifiInterface
                 $Status=$Status.split("`n") | Where-Object {$_ -match "^\s{4}State"}
                 if($Status -match ".*disconnected.*")
@@ -1947,11 +1939,11 @@ logCsvLine     : 192.168.2.101;connected;guest WiFi;3a:31:5d:a2:1a:df;WPA2-Perso
 
 
 
-        if($SelectedInterface -eq $null)
+        if($null -eq $SelectedInterface)
         {
             #$SelectedInterface=get-netadapter  | where-Object {$_.PhysicalMediaType -eq "Native 802.11"}|Select-Object -First 1 | & {process{return $_.Name}}
             #$SelectedInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}} | Where-Object {$_.Name -like "Wi*"}|Select-Object -First 1).name
-            $SelectedInterface=(Get-WifiInterfaces | select -First 1).Name
+            $SelectedInterface=(Get-WifiInterfaces | Select-Object -First 1).Name
         }
         $InterfaceIP=(Get-InterfaceIP $SelectedInterface).IPv4Address
 
@@ -2064,7 +2056,7 @@ Realtek 8812AU Wireless LAN 802.11ac USB NIC 780                  WiFi 2 780    
             }
             $ListOfInterfaceInfo+=[pscustomobject]$newIf
         }
-        if($SelectedInterface -eq $null)
+        if($null -eq $SelectedInterface)
         {
             return $ListOfInterfaceInfo 
         }
@@ -2130,7 +2122,7 @@ Function Monitor-WifiState()
         while($true)
         {
 
-            if($SelectedInterface -eq $null)
+            if($null -eq $SelectedInterface)
             {
                 try{
                     $CurrentState=Get-WifiState
@@ -2151,7 +2143,7 @@ Function Monitor-WifiState()
                 }
             }
 
-            Sleep $CheckTime
+            Start-Sleep $CheckTime
         }
 
     }
@@ -2230,7 +2222,7 @@ function Get-InterfaceIP()
 
 
     Process{
-        $selectedInterface=[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | where name -eq $Interface
+        $selectedInterface=[System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | Where-Object name -eq $Interface
 
         $InterfaceAlias=$selectedInterface.Name
      
