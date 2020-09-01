@@ -1101,7 +1101,7 @@ Function Show-IPConfig
         $ParameterAttribute.Position = 0
         $AttributeCollection.Add($ParameterAttribute)
         #$arrSet = (Get-NetAdapter).Name
-        $arrSet = (netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name
+        $arrSet = (netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)" | Select-Object -Skip 1| &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}).Name+"All"
         $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
         $AttributeCollection.Add($ValidateSetAttribute)
         $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
@@ -1114,50 +1114,58 @@ Function Show-IPConfig
 
 
     Process{
-        $AllAdapters=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)"| Select-Object -Skip 1 | &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}        )
-        $SelectedAdapter= $AllAdapters | Where-Object {$_.Name -eq $Interface}
         
-        #$SelectedAdapter=Get-NetAdapter | Where-Object {$_.Name -eq $Interface}
-        
-        $Interface=$SelectedAdapter.Name
-
-        $AllIpConifig=$(ipconfig /all)
-        $needToPrintNextLine=$false
-        $ignoreWhiteSpace=$false
-        foreach($nextline in $AllIpConifig)
-        {
-            if($ignoreWhiteSpace -eq $true)
+        if($Interface -eq "All"){
+            ipconfig /all
+        }
+        else{
+            $AllAdapters=(netsh interface show interface | select-string -Pattern "([a-zA-Z0-9]*\s{2,}){3}(.*)"| Select-Object -Skip 1 | &{process{[pscustomobject]@{Name=$_.matches[0].groups[2].value}}}        )
+            $SelectedAdapter= $AllAdapters | Where-Object {$_.Name -eq $Interface}
+            $Interface=$SelectedAdapter.Name
+            $AllIpConifig=$(ipconfig /all)
+            $needToPrintNextLine=$false
+            $ignoreWhiteSpace=$false
+            foreach($nextline in $AllIpConifig)
             {
-                Write-output $nextline
-                $ignoreWhiteSpace=$false
-            }
-            else
-            {
-                if($nextline -match "^(?!\s).*")
+                if($ignoreWhiteSpace -eq $true)
                 {
-                    if($nextline -match "^.*$($Interface):$")
-                    {
-                        Write-output $nextline
-                        $needToPrintNextLine=$true
-                        $ignoreWhiteSpace=$true
-                    }
-                    else
-                    {
-                        $needToPrintNextLine=$false
-                        $ignoreWhiteSpace=$false
-                    }
-
-
+                    Write-output $nextline
+                    $ignoreWhiteSpace=$false
                 }
                 else
                 {
-                    if($needToPrintNextLine)
+                    if($nextline -match "^(?!\s).*")
                     {
-                        Write-output $nextline
+                        if($nextline -match "^.*$($Interface):$")
+                        {
+                            Write-output $nextline
+                            $needToPrintNextLine=$true
+                            $ignoreWhiteSpace=$true
+                        }
+                        else
+                        {
+                            $needToPrintNextLine=$false
+                            $ignoreWhiteSpace=$false
+                        }
+
+
+                    }
+                    else
+                    {
+                        if($needToPrintNextLine)
+                        {
+                            Write-output $nextline
+                        }
                     }
                 }
             }
         }
+        
+        
+        
+        
+
+        
     }
 }
 
@@ -1614,7 +1622,7 @@ Function Scan-WifiAPs()
 .PARAMETER BSSIDWildCard
    Specifies wildcard filter for BSSID
 .PARAMETER ScanTime
-    Specifies how long will wait for scan. Default value is 1 sec.
+    Specifies how long will wait for scan. Default value is 3 sec.
 
 .EXAMPLE
    Scan-WifiAPs -profileNameWildCard TP007
@@ -2069,7 +2077,7 @@ Realtek 8812AU Wireless LAN 802.11ac USB NIC 780                  WiFi 2 780    
                     }
                     else
                     {
-                        $newIf.Add($keyvaluepair[0].trim(), ($keyvaluepair[1..$keyvaluepair.Length] | Join-String -Delimiter ':').trim())
+                        $newIf.Add($keyvaluepair[0].trim(), ($keyvaluepair[1..$keyvaluepair.Length] | Join-Strings -Delimiter ':').trim())
                         
                     }
             
@@ -2170,7 +2178,7 @@ Function Monitor-WifiState()
     }
 }
 
-function Join-String
+function Join-Strings
 {
     [CmdletBinding()]
     param
