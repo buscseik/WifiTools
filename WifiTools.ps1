@@ -1982,7 +1982,8 @@ logCsvLine     : 192.168.2.101;connected;guest WiFi;3a:31:5d:a2:1a:df;WPA2-Perso
         if( $Interface.State -eq "connected" )
         {
             $ESSID=$Interface.SSID
-            $BSSID=$Interface.BSID
+            $BSSID=$Interface.BSSID
+            $State=$Interface.State
             $Authentication=$Interface.Authentication
             $ReceiveRate=$Interface."Receive rate (Mbps)"
             $TransmitRate=$Interface."Transmit rate (Mbps)"
