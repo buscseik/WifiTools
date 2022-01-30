@@ -13,6 +13,102 @@
     [datetime]$StateTime
 }
 
+function Connect-WiFiWithWPS()
+{
+<#
+
+.DESCRIPTION
+   This function can help to connect to wireless network with wireless protected setup (WPS)
+
+
+.PARAMETER NetworkName
+   You can specify the exact profile name, where you want to connect.
+
+.EXAMPLE
+   Connect-WiFiWithWPS -NetworkName TP007
+
+.EXAMPLE
+   Connect-WiFiWithWPS -NetworkName TP007 -InterfaceName Wi-Fi
+
+#>
+    [CmdletBinding()]
+    param(
+	[Parameter(Mandatory=$true, HelpMessage="Please specify Wireless network name")]
+    [string]$NetworkName, 
+	$timeout=60, 
+	[Parameter(Mandatory=$true, HelpMessage="Please specify BSSID")]
+    $bssid="", 
+    $wpspin)
+
+    DynamicParam {
+        $RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+		
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $true
+        $ParameterAttributeInterface.Position = 2
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
+
+        $ParameterName="WPSMode"
+        $AttributeCollection = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttribute = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttribute.Mandatory = $false
+        $ParameterAttribute.Position = 4
+        $AttributeCollection.Add($ParameterAttribute)
+        $arrSet = "push", "pin"
+        $ValidateSetAttribute = New-Object System.Management.Automation.ValidateSetAttribute($arrSet)
+        $AttributeCollection.Add($ValidateSetAttribute)
+        $RuntimeParameter = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterName, [string], $AttributeCollection)
+        $RuntimeParameterDictionary.Add($ParameterName, $RuntimeParameter)
+
+
+        return $RuntimeParameterDictionary
+    }
+    begin{
+        $WPSMode = $PsBoundParameters[$ParameterName]
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+    process{
+
+
+		$i = 0
+		$SelectedInterfaceIndex = 0
+		$interfaceinfo = $(netsh wlan show interfaces)
+		$interfaceinfolist = $interfaceinfo -split "\r\n"
+
+		foreach($nextitem in $interfaceinfolist){
+			$i++
+			if ($nextitem -like "*Name*: $($SelectedInterface)") {$SelectedInterfaceIndex= $i}
+		}
+		$guid = ($interfaceinfolist[$SelectedInterfaceIndex+1] -split (":"))[1].trim()
+
+
+		if($WPSMode -eq "push"){
+			write-host "wpspush $NetworkName $bssid $timeout $guid"
+			WIFI-WPS.exe wpspush $NetworkName $bssid $timeout $guid 
+		}
+		else{
+			if ($wpspin -eq ""){
+				write-host "Please specify PIN for WPS pin connection"
+			}
+			else{
+				WIFI-WPS.exe wpspin $NetworkName $bssid $timeout $guid $wpspin
+			}
+		}
+	
+		
+		
+	
+		
+    }
+}
 
 function Show-WifiState()
 {

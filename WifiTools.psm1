@@ -35,4 +35,5 @@ Export-ModuleMember -function Disable-NetworkInterface
 Export-ModuleMember -function Enable-NetworkInterface
 Export-ModuleMember -function Get-InterfaceIP
 Export-ModuleMember -function Get-WifiInterfaces
+Export-ModuleMember -function Connect-WiFiWithWPS
 #endregion export module member
