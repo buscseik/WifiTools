@@ -200,28 +200,35 @@ Will dispaly and refresh wirless connection state in every 5 sec.
 
 #>
 
-    param([Parameter(Mandatory=$true)][int]$refreshTime, [switch]$LogMode=$false)
+    param([Parameter(Mandatory=$true)][int]$refreshTime, [switch]$LogMode=$false, [int]$length=0)
 
-
-        while($true)
-        {
-
-             $CurrentState=Show-WifiState
-
-             if($LogMode -eq $true)
-             {
+	if($length -eq 0){
+        while($true){
+            $CurrentState=Show-WifiState
+            if($LogMode -eq $true){
                 $($CurrentState | Format-Table -HideTableHeaders | Out-String).trim() | DateEcho
-
-             }
-             else
-             {
+            }
+            else{
                 Clear-host
                 $CurrentState | Write-Output
-             }
-
-
+            }
             Start-Sleep $refreshTime
         }
+	}
+	else{
+		for($i =0; $i -lt $length;$i++){
+            $CurrentState=Show-WifiState
+            if($LogMode -eq $true){
+                $($CurrentState | Format-Table -HideTableHeaders | Out-String).trim() | DateEcho
+            }
+            else{
+                Clear-host
+                $CurrentState | Write-Output
+            }
+            Start-Sleep $refreshTime
+        }
+	}
+		
 
 }
 
@@ -1670,9 +1677,17 @@ class WifiAP
 }
 
 function Get-WifiAPs {
+	
+	[CmdletBinding()]
+    param([string]$InterfaceName="")
     
-    
-    $AllAP=$(netsh wlan show networks mode=bssid)
+    if($InterfaceName -eq ""){
+		$AllAP=$(netsh wlan show networks mode=bssid)
+	}
+	else{
+		$AllAP=$(netsh wlan show networks mode=bssid interface=$InterfaceName)
+		
+	}
     
     # Add extra empty line to help regex to recognize last wifi network
     $AllAP+=""
@@ -1719,6 +1734,8 @@ Function Scan-WifiAPs()
    Specifies wildcard filter for BSSID
 .PARAMETER ScanTime
     Specifies how long will wait for scan. Default value is 3 sec.
+.PARAMETER InterfaceName
+	Specify the interface to scan wifi APs
 
 .EXAMPLE
    Scan-WifiAPs -profileNameWildCard TP007
@@ -1749,55 +1766,87 @@ Function Scan-WifiAPs()
     [CmdletBinding()]
     param([string]$profileNameWildCard, [string]$BSSIDWildCard, [int]$ScanTime=3)
 
-    $beforeScanAPs=Get-WifiAPs
+    DynamicParam {
+		$RuntimeParameterDictionary = New-Object System.Management.Automation.RuntimeDefinedParameterDictionary
+		
+        $ParameterNameInterface="InterfaceName"
+        $AttributeCollectionInterface = New-Object System.Collections.ObjectModel.Collection[System.Attribute]
+        $ParameterAttributeInterface = New-Object System.Management.Automation.ParameterAttribute
+        $ParameterAttributeInterface.Mandatory = $false
+        $ParameterAttributeInterface.Position = 2
+        $AttributeCollectionInterface.Add($ParameterAttributeInterface)
+        #$arrSetInterface=get-netadapter | where-Object {$_.PhysicalMediaType -eq "Native 802.11"} | & {process{return $_.Name}}
+        $arrSetInterface=(netsh wlan show interfaces | select-string -Pattern "\s{4}Name\s{19}:\s(.*)" | &{process{[pscustomobject]@{Name=$_.matches[0].groups[1].value}}}).name
+        $ValidateSetAttributeInterface=New-Object System.Management.Automation.ValidateSetAttribute($arrSetInterface)
+        $AttributeCollectionInterface.Add($ValidateSetAttributeInterface)
+        $RuntimeParameterInterface = New-Object System.Management.Automation.RuntimeDefinedParameter($ParameterNameInterface, [string], $AttributeCollectionInterface)
+        $RuntimeParameterDictionary.Add($ParameterNameInterface, $RuntimeParameterInterface)
 
-    # Force interfaces to scan for new networks
-    $managedwifilib=[Reflection.Assembly]::LoadFile("$PSScriptRoot\ManagedWifi.dll")
-    $wificlient = New-Object NativeWifi.WlanClient
-    foreach($nextif in $wificlient.Interfaces){
-        $nextif.scan()
+        return $RuntimeParameterDictionary
     }
+	
+	begin{
+        $SelectedInterface=$PsBoundParameters[$ParameterNameInterface]
+    }
+	process{
+		$beforeScanAPs=Get-WifiAPs
 
-    Start-Sleep -Seconds $ScanTime
-    $AfterScanAPs=Get-WifiAPs
-    
-    # remove duplicates if there are more than one wifi interface and join the two list
-    $ListOfAPsfinal=@()
-    foreach($nextAP in $beforeScanAPs){
-        $apinlist=$false
-        foreach($nextsavedAP in $ListOfAPsfinal){
-            if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
-                $apinlist=$true
-            }
-        }
-        if(!$apinlist){
-            $ListOfAPsfinal+=$nextAP
-        }
-    }
-    foreach($nextAP in $AfterScanAPs){
-        $apinlist=$false
-        foreach($nextsavedAP in $ListOfAPsfinal){
-            if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
-                $apinlist=$true
-            }
-        }
-        if(!$apinlist){
-            $ListOfAPsfinal+=$nextAP
-        }
-    }
+		# Force interfaces to scan for new networks
+		$managedwifilib=[Reflection.Assembly]::LoadFile("$PSScriptRoot\ManagedWifi.dll")
+		$wificlient = New-Object NativeWifi.WlanClient
+		foreach($nextif in $wificlient.Interfaces){
+			$nextif.scan()
+		}
 
-    
-    # filter to selected
-    if($profileNameWildCard -ne "")
-    {
-        $ListOfAPsfinal = $ListOfAPsfinal | Where-Object {$_.Name -like $profileNameWildCard}
-    }
-    if($BSSIDWildCard -ne "")
-    {
-        $ListOfAPsfinal =$ListOfAPsfinal | Where-Object {$_.BSSID -like $BSSIDWildCard}
-    }
-    return $ListOfAPsfinal
-    #process all AP to an object, and after filter them
+		Start-Sleep -Seconds $ScanTime
+		
+		if($null -eq $SelectedInterface){
+			$AfterScanAPs=Get-WifiAPs
+		}
+		else{
+			$AfterScanAPs=Get-WifiAPs -InterfaceName $SelectedInterface
+		}
+		
+		
+		
+		# remove duplicates if there are more than one wifi interface and join the two list
+		$ListOfAPsfinal=@()
+		foreach($nextAP in $beforeScanAPs){
+			$apinlist=$false
+			foreach($nextsavedAP in $ListOfAPsfinal){
+				if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
+					$apinlist=$true
+				}
+			}
+			if(!$apinlist){
+				$ListOfAPsfinal+=$nextAP
+			}
+		}
+		foreach($nextAP in $AfterScanAPs){
+			$apinlist=$false
+			foreach($nextsavedAP in $ListOfAPsfinal){
+				if($nextsavedAP.Name -eq $nextAp.Name -and $nextsavedAP.BSSID -eq $nextAP.BSSID){
+					$apinlist=$true
+				}
+			}
+			if(!$apinlist){
+				$ListOfAPsfinal+=$nextAP
+			}
+		}
+
+		
+		# filter to selected
+		if($profileNameWildCard -ne "")
+		{
+			$ListOfAPsfinal = $ListOfAPsfinal | Where-Object {$_.Name -like $profileNameWildCard}
+		}
+		if($BSSIDWildCard -ne "")
+		{
+			$ListOfAPsfinal =$ListOfAPsfinal | Where-Object {$_.BSSID -like $BSSIDWildCard}
+		}
+		return $ListOfAPsfinal
+		#process all AP to an object, and after filter them
+	}
 }
 
 
@@ -2213,7 +2262,7 @@ Function Monitor-WifiState()
 
 #>
     [CmdletBinding()]
-    param([int]$CheckTime=1)
+    param([int]$CheckTime=1, [int]$length=0)
 
     DynamicParam {
 
@@ -2244,33 +2293,56 @@ Function Monitor-WifiState()
     }
     process
     {
+		if($length -eq 0){
+			while($true){
+				if($null -eq $SelectedInterface){
+					try{
+						$CurrentState=Get-WifiState
+						DateEcho $CurrentState.LogLine
+					}
+					Catch{
+						DateEcho "No connection"
+					}
+				}
+				else{
+					try{
+						$CurrentState=Get-WifiState -InterfaceName $SelectedInterface
+						DateEcho $CurrentState.LogLine
+					}
+					Catch{
+						DateEcho "No connection"
+					}
+				}
 
-        while($true)
-        {
+				Start-Sleep $CheckTime
+			}
 
-            if($null -eq $SelectedInterface)
-            {
-                try{
-                    $CurrentState=Get-WifiState
-                    DateEcho $CurrentState.LogLine
-                }
-                Catch{
-                    DateEcho "No connection"
-                }
-            }
-            else
-            {
-                try{
-                    $CurrentState=Get-WifiState -InterfaceName $SelectedInterface
-                    DateEcho $CurrentState.LogLine
-                }
-                Catch{
-                    DateEcho "No connection"
-                }
-            }
+		}
+		else{
+			for($i=0; $i -lt $length;$i++){
+				if($null -eq $SelectedInterface){
+					try{
+						$CurrentState=Get-WifiState
+						DateEcho $CurrentState.LogLine
+					}
+					Catch{
+						DateEcho "No connection"
+					}
+				}
+				else{
+					try{
+						$CurrentState=Get-WifiState -InterfaceName $SelectedInterface
+						DateEcho $CurrentState.LogLine
+					}
+					Catch{
+						DateEcho "No connection"
+					}
+				}
 
-            Start-Sleep $CheckTime
-        }
+				Start-Sleep $CheckTime
+			}
+			
+		}
 
     }
 }

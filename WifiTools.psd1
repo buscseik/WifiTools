@@ -2,7 +2,7 @@
 RootModule="WifiTools.psm1"
 GUID="488127aa-8772-4319-9a62-31c726c09d1a"
 Author="Krisztian Buscsei"
-ModuleVersion="1.8"
+ModuleVersion="1.8.1"
 Description="A set of tools that can simplify handle Wi-Fi profiles, connection. Also additional tools that closely related to networking and Wi-Fi."
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess
@@ -16,6 +16,7 @@ PrivateData = @{
         #Category = ""
 
         RequiredAssemblies = @('ManagedWifi.dll', 'WIFI-WPS.exe', 'Windows.winmd', 'System.Runtime.WindowsRuntime.dll')
+		# RequiredAssemblies = @('ManagedWifi.dll')
 
         # Keyword tags to help users find this module via navigations and search.
         Tags = @("PowerShell", "WiFi")
