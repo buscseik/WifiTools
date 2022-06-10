@@ -868,7 +868,7 @@ function Monitor-WifiLog()
 #>
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false
+        [Parameter(Mandatory=$false,Position=1,HelpMessage="Filtering to error with this log")][switch]$OnlyError=$false, [int]$Length=0
 
     )
     $lastevent=Get-WinEvent -Logname Microsoft-Windows-WLAN-AutoConfig/Operational | Select-Object -first 1
@@ -901,6 +901,8 @@ function Monitor-WifiLog()
         }
 
        Start-Sleep 1
+	   	$Counter++
+		if($Counter -gt $Length -and $Length -ne 0){break}
 
     }
 }
