@@ -378,7 +378,7 @@ function Disable-WifiProfiles
 
    $currentlocation=Get-Location
    Set-Location $env:TEMP
-   mkdir DisabledWifiProfiles  -ErrorAction Ignore
+   mkdir DisabledWifiProfiles  -ErrorAction Ignore >$null 2>&1
    Set-Location DisabledWifiProfiles
 
    Export-WifiProfiles
@@ -449,7 +449,7 @@ Function Show-WifiProfilePassword
     process{
         $currentlocation=Get-Location
         Set-Location $env:TEMP
-        mkdir TempWifiProfiles -ErrorAction Ignore
+        mkdir TempWifiProfiles -ErrorAction Ignore >$null 2>&1
         Set-Location TempWifiProfiles
     
         netsh wlan export profile name="$ProfileName" folder=$((get-location).path) key=clear >$null 2>&1
