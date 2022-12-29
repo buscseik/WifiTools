@@ -254,13 +254,13 @@ Function Get-PublicIP()
 
 	if(-not $ipv6)
 	{
-		$Uri = 'ipv4bot.whatismyipaddress.com'
-		Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content
+		$Uri = 'https://api.ipify.org?format=json'
+		(Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content | convertfrom-json).ip
 	}
 	else
 	{
-		$Uri = 'ipv6bot.whatismyipaddress.com'
-		Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content
+		$Uri = 'https://api64.ipify.org?format=json'
+		(Invoke-WebRequest -Uri $Uri -UseBasicParsing -DisableKeepAlive | Select-Object -ExpandProperty Content | convertfrom-json).ip
 
 	}
 
@@ -1170,7 +1170,7 @@ Function Show-WifiInterface()
     Hosted network status  : Not available
 
 #>
-    netsh wlan show interfaces
+    netsh wlan show interfaces | Out-Default
 }
 
 Function Show-IPConfig
@@ -1286,9 +1286,9 @@ function Release-Renew-IP()
     Release-Renew-IP
 
 #>
-    ipconfig /release
+    ipconfig /release | Out-Default
     Start-Sleep 5
-    ipconfig /renew
+    ipconfig /renew | Out-Default
 }
 
 function Disconnect-Wifi()
